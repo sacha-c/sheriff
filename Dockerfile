@@ -19,5 +19,3 @@ RUN apk add --no-cache osv-scanner
 WORKDIR /app
 
 COPY --from=builder /app/build/securityscanner /usr/local/bin/securityscanner
-
-ENTRYPOINT [ "securityscanner" ]
