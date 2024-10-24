@@ -1,0 +1,111 @@
+---
+commitizen:
+  customize:
+    bump_map:
+      ^.+!$: MAJOR
+      ^BREAKING[\-\ ]CHANGE: MAJOR
+      ^build: PATCH
+      ^chore: PATCH
+      ^ci: PATCH
+      ^docs: PATCH
+      ^feat: MINOR
+      ^fix: PATCH
+      ^perf: PATCH
+      ^refactor: PATCH
+      ^revert: PATCH
+      ^style: PATCH
+      ^test: PATCH
+    bump_message: "bump: version $current_version \u2192 $new_version"
+    bump_pattern: '^((BREAKING[\-\ ]CHANGE|\w+)(\(.+\))?!?):'
+    change_type_map:
+      build: Technical
+      chore: Technical
+      ci: CI
+      docs: Docs
+      feat: Feat
+      fix: Fix
+      perf: Perf
+      refactor: Refactor
+      revert: Fix
+      style: Technical
+      test: Tests
+    change_type_order:
+    - BREAKING CHANGE
+    - Feat
+    - Fix
+    - Refactor
+    - Perf
+    - CI
+    - Docs
+    - Technical
+    - Tests
+    changelog_pattern: ^(BREAKING[\-\ ]CHANGE|feat|fix|refactor|perf|ci|docs|style|test|chore|revert|build)(\(.+\))?(!)?
+    commit_parser: ^(?P<change_type>feat|fix|refactor|perf|BREAKING CHANGE|ci|docs|style|test|chore|revert|build)(?:\((?P<scope>[^()\\r\\n]*)\)|\()?(?P<breaking>!)?:\s(?P<message>.*)?
+    message_template: '{{prefix}}{% if scope %}({{scope}}){% endif %}: {{subject}}{%
+      if body %}\n\n{{body}}{% endif %}{% if is_breaking_change %}\n\nBREAKING CHANGE:
+      {{footer}}{% else %}\n\n{{footer}}{% endif %}'
+    questions:
+    - choices:
+      - key: x
+        name: 'fix: A bug fix. Correlates with PATCH in SemVer'
+        value: fix
+      - key: f
+        name: 'feat: A new feature. Correlates with MINOR in SemVer'
+        value: feat
+      - key: d
+        name: 'docs: Documentation only changes'
+        value: docs
+      - key: s
+        name: 'style: Changes that do not affect the meaning of the code (white-space,
+          formatting, missing semi-colons, etc)'
+        value: style
+      - key: r
+        name: 'refactor: A code change that neither fixes a bug nor adds a feature'
+        value: refactor
+      - key: p
+        name: 'perf: A code change that improves performance'
+        value: perf
+      - key: t
+        name: 'test: Adding missing or correcting existing tests'
+        value: test
+      - key: b
+        name: 'build: Changes that affect the build system or external dependencies
+          (example scopes: pip, docker, npm)'
+        value: build
+      - key: c
+        name: 'ci: Changes to our CI configuration files and scripts (example scopes:
+          GitLabCI)'
+        value: ci
+      message: Select the type of change you are committing
+      name: prefix
+      type: list
+    - message: 'What is the scope of this change? ((story number, class or file name):
+        (press [enter] to skip)\n'
+      name: scope
+      type: input
+    - message: 'Write a short and imperative summary of the code changes: (lower case
+        and no period)\n'
+      name: subject
+      type: input
+    - message: 'Provide additional contextual information about the code changes:
+        (press [enter] to skip)\n'
+      name: body
+      type: input
+    - default: false
+      message: Is this a BREAKING CHANGE? Correlates with MAJOR in SemVer
+      name: is_breaking_change
+      type: confirm
+    - message: 'Footer. Information about Breaking Changes and reference issues that
+        this commit closes: (press [enter] to skip)\n'
+      name: footer
+      type: input
+    schema: '<type>(<scope>): <subject>\n<BLANK LINE>\n<body>\n<BLANK LINE>\n(BREAKING
+      CHANGE: )<footer>'
+    schema_pattern: (?s)(build|ci|docs|feat|fix|perf|refactor|style|test|chore|revert|bump)(\(\S+\))?!?:([^\n\r]+)((\n\n.*)|(\s*))?$
+    version_parser: (?P<version>([0-9]+)\.([0-9]+)\.([0-9]+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+)?(\w+)?)
+  name: cz_customize
+  tag_format: v$version
+  update_changelog_on_bump: false
+  version: 0.0.1
+  version_files:
+  - package.json:"version"
