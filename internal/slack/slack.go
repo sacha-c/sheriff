@@ -1,9 +1,9 @@
 package slack
 
 import (
-	"log"
 	"os"
 
+	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 )
 
@@ -15,7 +15,7 @@ func PostReport(channelName string, text string) (err error) {
 		Types:           []string{"private_channel"},
 	})
 	if err != nil {
-		log.Default().Printf("Failed to get slack channel list: %v", err)
+		log.Err(err).Msg("Failed to get slack channel list")
 		return
 	}
 
@@ -27,7 +27,7 @@ func PostReport(channelName string, text string) (err error) {
 		}
 	}
 	if channelID == "" {
-		log.Default().Printf("Channel %v not found", channelName)
+		log.Error().Msgf("Channel %v not found", channelName)
 		return
 	}
 
@@ -37,7 +37,7 @@ func PostReport(channelName string, text string) (err error) {
 
 	_, _, err = api.PostMessage(channelID, msgoption)
 	if err != nil {
-		log.Default().Printf("Failed to post slack message: %v", err)
+		log.Err(err).Msg("Failed to post slack message")
 		return
 	}
 

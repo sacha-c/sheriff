@@ -1,14 +1,15 @@
 package osv
 
 import (
-	"log"
 	"os/exec"
+
+	"github.com/rs/zerolog/log"
 )
 
 func Scan(dir string) (isVulnerable bool, report string, err error) {
 	isVulnerable = false
 
-	log.Default().Print("Starting osv-scanner...")
+	log.Info().Msg("Starting osv-scanner...")
 	cmd := exec.Command("osv-scanner", "-r", "--verbosity", "error", "--format", "markdown", dir)
 
 	if out, err := cmd.Output(); err != nil {

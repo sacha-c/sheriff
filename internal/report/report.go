@@ -2,10 +2,11 @@ package report
 
 import (
 	"fmt"
-	"log"
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/scanner"
 	"securityscanner/internal/slack"
+
+	"github.com/rs/zerolog/log"
 )
 
 func CreateGitlabIssues(reports []scanner.Report) {
@@ -26,6 +27,6 @@ func PostSlackReport(channelName string, reports []scanner.Report) {
 
 	err := slack.PostReport(channelName, report)
 	if err != nil {
-		log.Default().Printf("Failed to post report to slack: %v", err)
+		log.Err(err).Msg("Failed to post report to slack")
 	}
 }

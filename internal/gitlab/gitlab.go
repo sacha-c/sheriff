@@ -1,9 +1,9 @@
 package gitlab
 
 import (
-	"log"
 	"os"
 
+	"github.com/rs/zerolog/log"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -12,7 +12,7 @@ const VulnerabilityIssueTitle = "SecurityScanner - Vulnerability report"
 func GetProjectList(namespace string) (projects []*gitlab.Project) {
 	git, err := gitlab.NewClient(os.Getenv("GITLAB_TOKEN"))
 	if err != nil {
-		log.Panicf("Failed to create client: %v", err)
+		log.Panic().Err(err).Msg("Failed to create client")
 	}
 
 	groups, _, err := git.Groups.ListGroups(&gitlab.ListGroupsOptions{
@@ -20,15 +20,15 @@ func GetProjectList(namespace string) (projects []*gitlab.Project) {
 		Search:       gitlab.Ptr(namespace),
 	})
 	if err != nil {
-		log.Panicf("Failed to fetch list of groups: %v", err)
+		log.Panic().Err(err).Msg("Failed to fetch list of groups")
 	}
 	if len(groups) == 0 {
-		log.Panicf("Group '%v' not found", namespace)
+		log.Panic().Msgf("Group '%v' not found", namespace)
 	}
 
 	group := groups[0]
 
-	log.Default().Printf("Fetching projects for group '%v'", group.Name)
+	log.Info().Msgf("Fetching projects for group '%v'", group.Name)
 	projects, _, err = git.Groups.ListGroupProjects(group.ID,
 		&gitlab.ListGroupProjectsOptions{
 			Archived:         gitlab.Ptr(false),
@@ -36,7 +36,7 @@ func GetProjectList(namespace string) (projects []*gitlab.Project) {
 			IncludeSubGroups: gitlab.Ptr(true),
 		})
 	if err != nil {
-		log.Panicf("Failed to fetch list of projects: %v", err)
+		log.Panic().Err(err).Msg("Failed to fetch list of projects")
 	}
 
 	return
@@ -45,7 +45,7 @@ func GetProjectList(namespace string) (projects []*gitlab.Project) {
 func getVulnerabilityIssue(project *gitlab.Project) (issue *gitlab.Issue, err error) {
 	git, err := gitlab.NewClient(os.Getenv("GITLAB_TOKEN"))
 	if err != nil {
-		log.Panicf("Failed to create client: %v", err)
+		log.Panic().Err(err).Msg("Failed to create client")
 	}
 
 	issues, _, err := git.Issues.ListProjectIssues(project.ID, &gitlab.ListProjectIssuesOptions{
@@ -53,7 +53,7 @@ func getVulnerabilityIssue(project *gitlab.Project) (issue *gitlab.Issue, err er
 		In:     gitlab.Ptr("title"),
 	})
 	if err != nil {
-		log.Default().Printf("Failed to fetch current list of issues: %v", err)
+		log.Err(err).Msg("Failed to fetch current list of issues")
 	}
 
 	if len(issues) > 0 {
@@ -66,41 +66,41 @@ func getVulnerabilityIssue(project *gitlab.Project) (issue *gitlab.Issue, err er
 func CloseVulnerabilityIssue(project *gitlab.Project) {
 	git, err := gitlab.NewClient(os.Getenv("GITLAB_TOKEN"))
 	if err != nil {
-		log.Panicf("Failed to create client: %v", err)
+		log.Panic().Err(err).Msg("Failed to create client")
 	}
 
 	issue, err := getVulnerabilityIssue(project)
 	if err != nil {
-		log.Default().Printf("Failed to fetch current list of issues: %v", err)
+		log.Err(err).Msg("Failed to fetch current list of issues")
 		return
 	}
 
 	git.Issues.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
 		StateEvent: gitlab.Ptr("close"),
 	})
-	log.Default().Print("Issue closed")
+	log.Info().Msg("Issue closed")
 }
 
 func OpenVulnerabilityIssue(project *gitlab.Project, report string) {
 	git, err := gitlab.NewClient(os.Getenv("GITLAB_TOKEN"))
 	if err != nil {
-		log.Panicf("Failed to create client: %v", err)
+		log.Panic().Err(err).Msg("Failed to create gitlab client")
 	}
 
 	issue, err := getVulnerabilityIssue(project)
 	if err != nil {
-		log.Default().Printf("Failed to fetch current list of issues: %v", err)
+		log.Err(err).Msg("Failed to fetch current list of issues")
 		return
 	}
 
 	if issue == nil {
-		log.Default().Print("Creating new issue")
+		log.Error().Msg("Creating new issue")
 		git.Issues.CreateIssue(project.ID, &gitlab.CreateIssueOptions{
 			Title:       gitlab.Ptr(VulnerabilityIssueTitle),
 			Description: &report,
 		})
 	} else {
-		log.Default().Printf("Updating existing issue '%v'", issue.Title)
+		log.Info().Msgf("Updating existing issue '%v'", issue.Title)
 		git.Issues.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
 			Description: &report,
 			StateEvent:  gitlab.Ptr("reopen"),
