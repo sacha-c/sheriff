@@ -2,6 +2,8 @@ package gitlab
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 	"github.com/xanzy/go-gitlab"
@@ -24,30 +26,84 @@ func NewService(gitlabToken string) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) GetProjectList(namespace string) (projects []*gitlab.Project) {
+func (s *Service) getTopLevelGroup(groupPath string) (*gitlab.Group, error) {
+	log.Info().Msgf("Getting top-level group %v", groupPath)
 	groups, _, err := s.client.Groups.ListGroups(&gitlab.ListGroupsOptions{
 		TopLevelOnly: gitlab.Ptr(true),
-		Search:       gitlab.Ptr(namespace),
+		Search:       gitlab.Ptr(groupPath),
 	})
 	if err != nil {
-		log.Panic().Err(err).Msg("Failed to fetch list of groups")
-	}
-	if len(groups) == 0 {
-		log.Panic().Msgf("Group '%v' not found", namespace)
+		return nil, errors.Join(fmt.Errorf("failed to fetch list of groups like %v", groupPath), err)
 	}
 
-	group := groups[0]
+	for _, group := range groups {
+		if group.Path == groupPath {
+			return group, nil
+		}
+	}
 
-	log.Info().Msgf("Fetching projects for group '%v'", group.Name)
+	return nil, fmt.Errorf("group %v not found", groupPath)
+}
+
+// Function to get subgroups recursively
+func (s *Service) getSubGroup(subGroupPaths []string, parent *gitlab.Group) (*gitlab.Group, error) {
+	if len(subGroupPaths) == 0 {
+		return parent, nil
+	}
+	subGroupPath := subGroupPaths[0]
+
+	log.Info().Msgf("Getting subgroup %v of parent group %v", subGroupPaths[0], parent.Path)
+
+	groups, _, err := s.client.Groups.ListSubGroups(parent.ID, &gitlab.ListSubGroupsOptions{
+		Search: gitlab.Ptr(subGroupPath),
+	})
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("error when search for group %v", subGroupPath), err)
+	}
+
+	var group *gitlab.Group
+	for _, g := range groups {
+		if g.Path == subGroupPath {
+			group = g
+		}
+	}
+	if group == nil {
+		return nil, fmt.Errorf("group %v not found in parent %v", subGroupPath, parent.Path)
+	}
+
+	log.Info().Msgf("Found subgroup %v of parent group %v", group.Path, parent.Path)
+
+	return s.getSubGroup(subGroupPaths[1:], group)
+}
+
+func (s *Service) GetProjectList(groupPath []string) (projects []*gitlab.Project, err error) {
+	topGroup, err := s.getTopLevelGroup(groupPath[0])
+	if err != nil {
+		return nil, err
+	}
+
+	group, err := s.getSubGroup(groupPath[1:], topGroup)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info().Msgf("Fetching projects for group '%v'", group.Path)
 	projects, _, err = s.client.Groups.ListGroupProjects(group.ID,
 		&gitlab.ListGroupProjectsOptions{
 			Archived:         gitlab.Ptr(false),
 			Simple:           gitlab.Ptr(true),
 			IncludeSubGroups: gitlab.Ptr(true),
+			WithShared:       gitlab.Ptr(false),
 		})
 	if err != nil {
 		log.Panic().Err(err).Msg("Failed to fetch list of projects")
 	}
+
+	var ps []string
+	for _, project := range projects {
+		ps = append(ps, project.PathWithNamespace)
+	}
+	log.Info().Msgf("Projects to scan: [\n\t%v\n]", strings.Join(ps, "\n\t"))
 
 	return
 }

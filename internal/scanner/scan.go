@@ -20,7 +20,7 @@ type Report struct {
 	Report       string
 }
 
-func Scan(namespace string, svc *gitlab.Service) (reports []Report, err error) {
+func Scan(groupPath []string, svc *gitlab.Service) (reports []Report, err error) {
 	// Create a temporary directory to store the scans
 	err = os.MkdirAll(TempScanDir, os.ModePerm)
 	if err != nil {
@@ -30,7 +30,10 @@ func Scan(namespace string, svc *gitlab.Service) (reports []Report, err error) {
 	log.Info().Msgf("Created temporary directory %v", TempScanDir)
 
 	log.Info().Msg("Getting the list of projects to scan...")
-	projects := svc.GetProjectList(namespace)
+	projects, err := svc.GetProjectList(groupPath)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("could not get project list of group %v", groupPath), err)
+	}
 
 	for _, project := range projects {
 		log.Info().Msgf("Scanning project %v", project.Name)

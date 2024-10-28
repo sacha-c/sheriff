@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/report"
 	"securityscanner/internal/scanner"
 	"securityscanner/internal/slack"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -25,6 +27,10 @@ func main() {
 				Name:  "gitlab-issue",
 				Usage: "Enable GitLab issue creation in projects affected by vulnerabilities.",
 			},
+			&cli.BoolFlag{
+				Name:  "print-report",
+				Usage: "Print report to standard output",
+			},
 			&cli.StringFlag{
 				Name:    "gitlab-token",
 				Usage:   "Token to access the Gitlab API.",
@@ -43,9 +49,9 @@ func main() {
 		Action: func(cCtx *cli.Context) error {
 			configureLogs(cCtx.Bool("verbose"))
 
-			namespace := cCtx.Args().First()
-			if namespace == "" {
-				log.Fatal().Msg("Please enter a gitlab namespace to scan.")
+			groupPath, err := parseGroupPaths(cCtx.Args().First())
+			if err != nil {
+				log.Fatal().Err(err).Msg("Failed to parse gitlab group path")
 			}
 
 			gitlabSvc, err := gitlab.NewService(cCtx.String("gitlab-token"))
@@ -53,7 +59,7 @@ func main() {
 				log.Fatal().Err(err).Msg("Failed to create gitlab client.")
 			}
 
-			scan_report, err := scanner.Scan(namespace, gitlabSvc)
+			scan_report, err := scanner.Scan(groupPath, gitlabSvc)
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to scan projects.")
 			}
@@ -73,10 +79,14 @@ func main() {
 				}
 			}
 
+			if cCtx.Bool("print-report") {
+				log.Info().Msgf("%#v", scan_report)
+			}
+
 			return nil
 		},
 		Args:      true,
-		ArgsUsage: "<gitlab namespace to scan>",
+		ArgsUsage: "full/path/to/gitlab/group",
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -94,4 +104,17 @@ func configureLogs(verbose bool) {
 	}
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+}
+
+func parseGroupPaths(path string) ([]string, error) {
+	if path == "" {
+		return nil, fmt.Errorf("gitlab path missing: %v", path)
+	}
+
+	paths := strings.Split(path, "/")
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("gitlab path incomplete: %v", path)
+	}
+
+	return paths, nil
 }
