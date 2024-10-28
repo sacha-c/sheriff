@@ -1,22 +1,29 @@
 package slack
 
 import (
-	"os"
+	"errors"
+	"fmt"
 
-	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 )
 
-func PostReport(channelName string, text string) (err error) {
-	api := slack.New(os.Getenv("SLACK_TOKEN"))
+type Service struct {
+	client *slack.Client
+}
 
-	channels, _, err := api.GetConversations(&slack.GetConversationsParameters{
+func New(token string) *Service {
+	return &Service{
+		client: slack.New(token),
+	}
+}
+
+func (s *Service) PostReport(channelName string, text string) (err error) {
+	channels, _, err := s.client.GetConversations(&slack.GetConversationsParameters{
 		ExcludeArchived: true,
 		Types:           []string{"private_channel"},
 	})
 	if err != nil {
-		log.Err(err).Msg("Failed to get slack channel list")
-		return
+		return errors.Join(errors.New("failed to get slack channel list"), err)
 	}
 
 	var channelID string
@@ -27,18 +34,16 @@ func PostReport(channelName string, text string) (err error) {
 		}
 	}
 	if channelID == "" {
-		log.Error().Msgf("Channel %v not found", channelName)
-		return
+		return fmt.Errorf("channel %v not found", channelName)
 	}
 
 	msgoption := slack.MsgOptionCompose(
 		slack.MsgOptionText(text, true),
 	)
 
-	_, _, err = api.PostMessage(channelID, msgoption)
+	_, _, err = s.client.PostMessage(channelID, msgoption)
 	if err != nil {
-		log.Err(err).Msg("Failed to post slack message")
-		return
+		return errors.Join(errors.New("failed to post slack message"))
 	}
 
 	return

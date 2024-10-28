@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"securityscanner/internal/git"
@@ -19,55 +20,52 @@ type Report struct {
 	Report       string
 }
 
-func Scan(namespace string) (reports []Report) {
+func Scan(namespace string, svc *gitlab.Service) (reports []Report, err error) {
 	// Create a temporary directory to store the scans
-	err := os.MkdirAll(TempScanDir, os.ModePerm)
+	err = os.MkdirAll(TempScanDir, os.ModePerm)
 	if err != nil {
-		log.Panic().Err(err).Msg("Could not create temporary directory")
+		return nil, errors.New("could not create temporary directory")
 	}
 	defer os.RemoveAll(TempScanDir)
 	log.Info().Msgf("Created temporary directory %v", TempScanDir)
 
 	log.Info().Msg("Getting the list of projects to scan...")
-	projects := gitlab.GetProjectList(namespace)
+	projects := svc.GetProjectList(namespace)
 
 	for _, project := range projects {
+		log.Info().Msgf("Scanning project %v", project.Name)
 		if report, err := scanProject(project); err != nil {
 			log.Err(err).Msgf("Failed to scan project %v, skipping", project.Name)
 		} else {
-			reports = append(reports, report)
+			reports = append(reports, *report)
 		}
 	}
 
 	return
 }
 
-func scanProject(project *gogitlab.Project) (report Report, err error) {
-	log.Info().Msgf("Scanning project %v", project.Name)
-
+func scanProject(project *gogitlab.Project) (report *Report, err error) {
 	dir, err := os.MkdirTemp(TempScanDir, fmt.Sprintf("%v-", project.Name))
 	if err != nil {
-		log.Panic().Err(err)
+		return nil, errors.Join(errors.New("failed to create project temporary directory"), err)
 	}
 	defer os.RemoveAll(dir)
 
 	// Clone the project
 	log.Info().Msgf("Cloning project in %v", dir)
 	if err = git.Clone(dir, project.HTTPURLToRepo); err != nil {
-		log.Err(err).Msg("Failed to clone project")
-		return
+		return nil, errors.Join(errors.New("failed to clone project"), err)
 	}
 
 	// Scan the project
 	isVulnerable, osv_report, err := osv.Scan(dir)
 	if err != nil {
-		log.Err(err).Msg("Something went wrong when running osv-scanner")
-		return
+		return nil, errors.Join(errors.New("failed to run osv-scanner"), err)
 	}
 
 	log.Info().Msgf("Finished scanning project %v", project.Name)
 
-	report = Report{
+	report = &Report{
 		Project:      project,
 		IsVulnerable: isVulnerable,
 		Report:       osv_report,
