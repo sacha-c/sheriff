@@ -10,7 +10,7 @@ func Scan(dir string) (isVulnerable bool, report string, err error) {
 	isVulnerable = false
 
 	log.Info().Msg("Starting osv-scanner...")
-	cmd := exec.Command("osv-scanner", "-r", "--verbosity", "error", "--format", "markdown", dir)
+	cmd := exec.Command("osv-scanner", "-r", "--verbosity", "error", "--format", "table", dir)
 
 	if out, err := cmd.Output(); err != nil {
 		if exitErr := err.(*exec.ExitError); exitErr != nil && exitErr.ExitCode() == 1 {

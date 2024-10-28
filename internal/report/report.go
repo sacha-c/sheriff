@@ -5,6 +5,7 @@ import (
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/scanner"
 	"securityscanner/internal/slack"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -24,9 +25,13 @@ func CreateGitlabIssues(reports []scanner.Report, s *gitlab.Service) {
 }
 
 func PostSlackReport(channelName string, reports []scanner.Report, s *slack.Service) (err error) {
-	report := "Security Scan Report\n\n"
+	report := fmt.Sprintf("Security Scan Report %v\n\n", time.Now().Format(time.ANSIC))
 	for _, r := range reports {
-		report += fmt.Sprintf("Project: %v | %v\n%v", r.Project.Name, r.Project.WebURL, r.Report)
+		if r.Report == "" {
+			report += fmt.Sprintf("Project: %v | %v\nNothing to see here :-)\n\n", r.Project.Name, r.Project.WebURL)
+		} else {
+			report += fmt.Sprintf("Project: %v | %v\n```\n%v```\n\n", r.Project.Name, r.Project.WebURL, r.Report)
+		}
 	}
 
 	if err = s.PostReport(channelName, report); err != nil {

@@ -3,6 +3,8 @@ package slack
 import (
 	"errors"
 	"fmt"
+	"time"
+	"unicode/utf8"
 
 	"github.com/slack-go/slack"
 )
@@ -37,12 +39,12 @@ func (s *Service) PostReport(channelName string, text string) (err error) {
 		return fmt.Errorf("channel %v not found", channelName)
 	}
 
-	msgoption := slack.MsgOptionCompose(
-		slack.MsgOptionText(text, true),
-	)
-
-	_, _, err = s.client.PostMessage(channelID, msgoption)
-	if err != nil {
+	if _, err := s.client.UploadFileV2(slack.UploadFileV2Parameters{
+		Channel:  channelID,
+		Filename: fmt.Sprintf("Security_Report_%v.md", time.Now().Format("2006-01-02")),
+		FileSize: utf8.RuneCountInString(text),
+		Content:  text,
+	}); err != nil {
 		return errors.Join(errors.New("failed to post slack message"))
 	}
 
