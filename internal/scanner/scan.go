@@ -32,9 +32,10 @@ type Report struct {
 	Project         *gogitlab.Project
 	IsVulnerable    bool
 	Vulnerabilities []Vulnerability
+	IssueUrl        string // URL of the GitLab issue. Conditionally set if --gitlab-issue is passed
 }
 
-func Scan(groupPath []string, svc *gitlab.Service) (reports []Report, err error) {
+func Scan(groupPath []string, svc *gitlab.Service) (reports []*Report, err error) {
 	// Create a temporary directory to store the scans
 	err = os.MkdirAll(TempScanDir, os.ModePerm)
 	if err != nil {
@@ -54,7 +55,7 @@ func Scan(groupPath []string, svc *gitlab.Service) (reports []Report, err error)
 		if report, err := scanProject(project); err != nil {
 			log.Err(err).Msgf("Failed to scan project %v, skipping", project.Name)
 		} else {
-			reports = append(reports, *report)
+			reports = append(reports, report)
 		}
 	}
 
@@ -88,6 +89,14 @@ func scanProject(project *gogitlab.Project) (report *Report, err error) {
 }
 
 func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
+	if r == nil {
+		return &Report{
+			Project:         p,
+			IsVulnerable:    false,
+			Vulnerabilities: []Vulnerability{},
+		}
+	}
+
 	var vs []Vulnerability
 	for _, p := range r.Results {
 		for _, pkg := range p.Packages {

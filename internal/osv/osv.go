@@ -2,7 +2,6 @@ package osv
 
 import (
 	"encoding/json"
-	"fmt"
 	"os/exec"
 
 	"github.com/rs/zerolog/log"
@@ -72,8 +71,6 @@ func Scan(dir string) (report *Report, err error) {
 	out, err := cmd.Output()
 	if err != nil {
 		if exitErr := err.(*exec.ExitError); exitErr != nil && exitErr.ExitCode() == 1 {
-
-			fmt.Println(string(out))
 
 			err = json.Unmarshal(out, &report)
 			if err != nil {

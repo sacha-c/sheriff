@@ -141,31 +141,34 @@ func (s *Service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
 	return
 }
 
-func (s *Service) OpenVulnerabilityIssue(project *gitlab.Project, report string) (err error) {
-	issue, err := s.getVulnerabilityIssue(project)
+func (s *Service) OpenVulnerabilityIssue(project *gitlab.Project, report string) (issue *gitlab.Issue, err error) {
+	issue, err = s.getVulnerabilityIssue(project)
 	if err != nil {
-		return errors.Join(errors.New("failed to fetch current list of issues"), err)
+		return nil, errors.Join(errors.New("failed to fetch current list of issues"), err)
 	}
 
 	if issue == nil {
 		log.Info().Msg("Creating new issue")
 
-		if _, _, err = s.client.Issues.CreateIssue(project.ID, &gitlab.CreateIssueOptions{
+		issue, _, err = s.client.Issues.CreateIssue(project.ID, &gitlab.CreateIssueOptions{
 			Title:       gitlab.Ptr(VulnerabilityIssueTitle),
 			Description: &report,
-		}); err != nil {
-			return errors.Join(errors.New("failed to create new issue"), err)
-		}
-	} else {
-		log.Info().Msgf("Updating existing issue '%v'", issue.Title)
-
-		if _, _, err = s.client.Issues.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
-			Description: &report,
-			StateEvent:  gitlab.Ptr("reopen"),
-		}); err != nil {
-			return errors.Join(errors.New("failed to update issue"), err)
+		})
+		if err != nil {
+			return nil, errors.Join(errors.New("failed to create new issue"), err)
 		}
 
+		return
+	}
+
+	log.Info().Msgf("Updating existing issue '%v'", issue.Title)
+
+	issue, _, err = s.client.Issues.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
+		Description: &report,
+		StateEvent:  gitlab.Ptr("reopen"),
+	})
+	if err != nil {
+		return nil, errors.Join(errors.New("failed to update issue"), err)
 	}
 
 	return

@@ -3,8 +3,6 @@ package slack
 import (
 	"errors"
 	"fmt"
-	"time"
-	"unicode/utf8"
 
 	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
@@ -15,25 +13,20 @@ type Service struct {
 	client *slack.Client
 }
 
-func New(token string) *Service {
+func New(token string, debug bool) *Service {
 	return &Service{
-		client: slack.New(token),
+		client: slack.New(token, slack.OptionDebug(debug)),
 	}
 }
 
-func (s *Service) PostReport(channelName string, text string) (err error) {
+func (s *Service) PostMessage(channelName string, options ...slack.MsgOption) (err error) {
 	channel, err := s.findSlackChannel(channelName)
 	if err != nil {
 		return
 	}
 
-	if _, err := s.client.UploadFileV2(slack.UploadFileV2Parameters{
-		Channel:  channel.ID,
-		Filename: fmt.Sprintf("Security_Report_%v.md", time.Now().Format("2006-01-02")),
-		FileSize: utf8.RuneCountInString(text),
-		Content:  text,
-	}); err != nil {
-		return errors.Join(errors.New("failed to post slack message"))
+	if _, _, err := s.client.PostMessage(channel.ID, options...); err != nil {
+		return errors.Join(errors.New("failed to post slack message"), err)
 	}
 
 	log.Info().Msgf("Posted slack message to channel %v", channelName)
@@ -50,6 +43,7 @@ func (s *Service) findSlackChannel(channelName string) (channel *slack.Channel, 
 			ExcludeArchived: true,
 			Cursor:          nextCursor,
 			Types:           []string{"public_channel", "private_channel"},
+			Limit:           1000,
 		}); err != nil {
 			return nil, errors.Join(errors.New("failed to get slack channel list"), err)
 		}
@@ -62,5 +56,7 @@ func (s *Service) findSlackChannel(channelName string) (channel *slack.Channel, 
 		} else if nextCursor == "" {
 			return nil, fmt.Errorf("channel %v not found", channelName)
 		}
+
+		log.Debug().Msgf("Channel %v not found in current page, fetching next page %v", channelName, nextCursor)
 	}
 }

@@ -47,7 +47,9 @@ func main() {
 			},
 		},
 		Action: func(cCtx *cli.Context) error {
-			configureLogs(cCtx.Bool("verbose"))
+			verbose := cCtx.Bool("verbose")
+
+			configureLogs(verbose)
 
 			groupPath, err := parseGroupPaths(cCtx.Args().First())
 			if err != nil {
@@ -72,7 +74,7 @@ func main() {
 			if slack_channel := cCtx.String("slack-channel"); slack_channel != "" {
 				log.Info().Msgf("Posting report to slack channel %v", slack_channel)
 
-				slackSvc := slack.New(cCtx.String("slack-token"))
+				slackSvc := slack.New(cCtx.String("slack-token"), verbose)
 
 				if err := report.PostSlackReport(slack_channel, scan_report, slackSvc); err != nil {
 					log.Err(err).Msg("Failed to post slack report")
