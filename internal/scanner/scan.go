@@ -8,16 +8,30 @@ import (
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/osv"
 
+	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
 	gogitlab "github.com/xanzy/go-gitlab"
 )
 
 const TempScanDir = "tmp_scans"
 
+type Vulnerability struct {
+	Id               string
+	PackageName      string
+	PackageVersion   string
+	PackageUrl       string
+	PackageEcosystem string
+	AdvisoryUrl      string
+	Source           string
+	Severity         string
+	Summary          string
+	Details          string
+}
+
 type Report struct {
-	Project      *gogitlab.Project
-	IsVulnerable bool
-	Report       string
+	Project         *gogitlab.Project
+	IsVulnerable    bool
+	Vulnerabilities []Vulnerability
 }
 
 func Scan(groupPath []string, svc *gitlab.Service) (reports []Report, err error) {
@@ -61,18 +75,49 @@ func scanProject(project *gogitlab.Project) (report *Report, err error) {
 	}
 
 	// Scan the project
-	isVulnerable, osv_report, err := osv.Scan(dir)
+	osvReport, err := osv.Scan(dir)
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to run osv-scanner"), err)
 	}
 
+	report = reportFromOSV(osvReport, project)
+
 	log.Info().Msgf("Finished scanning project %v", project.Name)
 
-	report = &Report{
-		Project:      project,
-		IsVulnerable: isVulnerable,
-		Report:       osv_report,
+	return report, nil
+}
+
+func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
+	var vs []Vulnerability
+	for _, p := range r.Results {
+		for _, pkg := range p.Packages {
+			for _, v := range pkg.Vulnerabilities {
+				packageRef := pie.FirstOr(pie.Filter(v.References, func(ref osv.Reference) bool { return ref.Type == osv.PackageKind }), osv.Reference{})
+				advisoryRef := pie.FirstOr(pie.Filter(v.References, func(ref osv.Reference) bool { return ref.Type == osv.PackageKind }), osv.Reference{})
+
+				vs = append(vs, Vulnerability{
+					Id:               v.Id,
+					PackageName:      pkg.PackageInfo.Name,
+					PackageVersion:   pkg.PackageInfo.Version,
+					PackageUrl:       packageRef.Url,
+					PackageEcosystem: pkg.PackageInfo.Ecosystem,
+					AdvisoryUrl:      advisoryRef.Url,
+					Source:           p.Source.Path,
+					Severity:         v.DatabaseSpecific.Severity,
+					Summary:          v.Summary,
+					Details:          v.Detail,
+				})
+			}
+		}
 	}
 
-	return
+	isVulnerable := pie.Any(r.Results, func(res osv.Result) bool {
+		return pie.Any(res.Packages, func(pkg osv.Package) bool { return len(pkg.Vulnerabilities) > 0 })
+	})
+
+	return &Report{
+		Project:         p,
+		IsVulnerable:    isVulnerable,
+		Vulnerabilities: vs,
+	}
 }
