@@ -40,7 +40,9 @@ type Vulnerability struct {
 }
 
 type Group struct {
-	Ids []string
+	Ids         []string `json:"ids"`
+	Aliases     []string `json:"aliases"`
+	MaxSeverity string   `json:"max_severity"`
 }
 
 type PackageInfo struct {

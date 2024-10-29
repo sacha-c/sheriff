@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"securityscanner/internal/git"
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/osv"
@@ -21,7 +22,6 @@ type Vulnerability struct {
 	PackageVersion   string
 	PackageUrl       string
 	PackageEcosystem string
-	AdvisoryUrl      string
 	Source           string
 	Severity         string
 	Summary          string
@@ -102,7 +102,9 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 		for _, pkg := range p.Packages {
 			for _, v := range pkg.Vulnerabilities {
 				packageRef := pie.FirstOr(pie.Filter(v.References, func(ref osv.Reference) bool { return ref.Type == osv.PackageKind }), osv.Reference{})
-				advisoryRef := pie.FirstOr(pie.Filter(v.References, func(ref osv.Reference) bool { return ref.Type == osv.PackageKind }), osv.Reference{})
+				source := filepath.Base(p.Source.Path)
+				sevIdx := pie.FindFirstUsing(pkg.Groups, func(g osv.Group) bool { return pie.Contains(g.Ids, v.Id) || pie.Contains(g.Aliases, v.Id) })
+				severity := pkg.Groups[sevIdx].MaxSeverity
 
 				vs = append(vs, Vulnerability{
 					Id:               v.Id,
@@ -110,9 +112,8 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 					PackageVersion:   pkg.PackageInfo.Version,
 					PackageUrl:       packageRef.Url,
 					PackageEcosystem: pkg.PackageInfo.Ecosystem,
-					AdvisoryUrl:      advisoryRef.Url,
-					Source:           p.Source.Path,
-					Severity:         v.DatabaseSpecific.Severity,
+					Source:           source,
+					Severity:         severity,
 					Summary:          v.Summary,
 					Details:          v.Detail,
 				})

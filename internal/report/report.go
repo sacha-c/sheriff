@@ -15,7 +15,7 @@ import (
 func CreateGitlabIssues(reports []*scanner.Report, s *gitlab.Service) {
 	for _, r := range reports {
 		if r.IsVulnerable {
-			if issue, err := s.OpenVulnerabilityIssue(r.Project, fmt.Sprint(r)); err != nil {
+			if issue, err := s.OpenVulnerabilityIssue(r.Project, formatGitlabIssue(r)); err != nil {
 				log.Err(err).Msgf("Failed to open or update issue for project %v", r.Project.Name)
 			} else {
 				r.IssueUrl = issue.WebURL
@@ -26,6 +26,23 @@ func CreateGitlabIssues(reports []*scanner.Report, s *gitlab.Service) {
 			}
 		}
 	}
+}
+
+func formatGitlabIssue(r *scanner.Report) (report string) {
+	report = "| OSV URL | CVSS | Ecosystem | Package | Version | Source |\n| --- | --- | --- | --- | --- | --- |\n"
+	for _, v := range r.Vulnerabilities {
+		report += fmt.Sprintf(
+			"| %v | %v | %v | %v | %v | %v |\n",
+			fmt.Sprintf("https://osv.dev/%s", v.Id),
+			v.Severity,
+			v.PackageEcosystem,
+			v.PackageName,
+			v.PackageVersion,
+			v.Source,
+		)
+	}
+
+	return
 }
 
 func PostSlackReport(channelName string, reports []*scanner.Report, s *slack.Service) (err error) {
