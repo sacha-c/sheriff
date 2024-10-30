@@ -130,6 +130,11 @@ func (s *Service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
 		return errors.Join(errors.New("failed to fetch current list of issues"), err)
 	}
 
+	if issue == nil {
+		log.Info().Msg("No issue to close, nothing to do")
+		return
+	}
+
 	if _, _, err = s.client.Issues.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
 		StateEvent: gitlab.Ptr("close"),
 	}); err != nil {
