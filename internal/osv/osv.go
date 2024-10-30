@@ -15,6 +15,16 @@ const (
 	PackageKind  ReferenceKind = "PACKAGE"
 )
 
+type SeverityScoreKind string
+
+const (
+	Critical SeverityScoreKind = "CRITICAL"
+	High     SeverityScoreKind = "HIGH"
+	Moderate SeverityScoreKind = "MODERATE"
+	Low      SeverityScoreKind = "LOW"
+	Unknown  SeverityScoreKind = "UNKNOWN"
+)
+
 type Source struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
@@ -26,7 +36,7 @@ type Reference struct {
 }
 
 type DatabaseSpecific struct {
-	Severity string `json:"severity"`
+	Severity SeverityScoreKind `json:"severity"`
 }
 
 type Vulnerability struct {
@@ -74,12 +84,21 @@ func Scan(dir string) (report *Report, err error) {
 	if err != nil {
 		if exitErr := err.(*exec.ExitError); exitErr != nil && exitErr.ExitCode() == 1 {
 
-			err = json.Unmarshal(out, &report)
+			err = readOSVJson(report, out)
 			if err != nil {
 				return
 			}
 		}
 
+		return
+	}
+
+	return
+}
+
+func readOSVJson(report *Report, jsonData []byte) (err error) {
+	err = json.Unmarshal(jsonData, report)
+	if err != nil {
 		return
 	}
 

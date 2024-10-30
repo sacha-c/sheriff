@@ -8,6 +8,7 @@ import (
 	"securityscanner/internal/git"
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/osv"
+	"slices"
 
 	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
@@ -24,6 +25,7 @@ type Vulnerability struct {
 	PackageEcosystem string
 	Source           string
 	Severity         string
+	SeverityScore    osv.SeverityScoreKind
 	Summary          string
 	Details          string
 }
@@ -35,6 +37,8 @@ type Report struct {
 	IssueUrl        string // URL of the GitLab issue. Conditionally set if --gitlab-issue is passed
 	Error           bool   // Conditionally set if an error occurred during the scan
 }
+
+var SeverityScoreOrder = []osv.SeverityScoreKind{osv.Critical, osv.High, osv.Moderate, osv.Low, osv.Unknown}
 
 func Scan(groupPath []string, svc *gitlab.Service) (reports []*Report, err error) {
 	// Create a temporary directory to store the scans
@@ -107,6 +111,10 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 				source := filepath.Base(p.Source.Path)
 				sevIdx := pie.FindFirstUsing(pkg.Groups, func(g osv.Group) bool { return pie.Contains(g.Ids, v.Id) || pie.Contains(g.Aliases, v.Id) })
 				severity := pkg.Groups[sevIdx].MaxSeverity
+				var severityScore osv.SeverityScoreKind = osv.Unknown
+				if slices.Contains(SeverityScoreOrder, v.DatabaseSpecific.Severity) {
+					severityScore = v.DatabaseSpecific.Severity
+				}
 
 				vs = append(vs, Vulnerability{
 					Id:               v.Id,
@@ -116,6 +124,7 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 					PackageEcosystem: pkg.PackageInfo.Ecosystem,
 					Source:           source,
 					Severity:         severity,
+					SeverityScore:    severityScore,
 					Summary:          v.Summary,
 					Details:          v.Detail,
 				})

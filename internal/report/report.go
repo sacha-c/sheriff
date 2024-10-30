@@ -28,25 +28,6 @@ func CreateGitlabIssues(reports []*scanner.Report, s *gitlab.Service) {
 	}
 }
 
-func formatGitlabIssue(r *scanner.Report) (report string) {
-	sortedVulnerabilities := pie.SortUsing(r.Vulnerabilities, func(a, b scanner.Vulnerability) bool { return a.Severity > b.Severity })
-
-	report = "| OSV URL | CVSS | Ecosystem | Package | Version | Source |\n| --- | --- | --- | --- | --- | --- |\n"
-	for _, v := range sortedVulnerabilities {
-		report += fmt.Sprintf(
-			"| %v | %v | %v | %v | %v | %v |\n",
-			fmt.Sprintf("https://osv.dev/%s", v.Id),
-			v.Severity,
-			v.PackageEcosystem,
-			v.PackageName,
-			v.PackageVersion,
-			v.Source,
-		)
-	}
-
-	return
-}
-
 func PostSlackReport(channelName string, reports []*scanner.Report, groupPath string, s *slack.Service) (err error) {
 	formattedReport := formatSlackReports(reports, groupPath)
 
@@ -57,6 +38,37 @@ func PostSlackReport(channelName string, reports []*scanner.Report, groupPath st
 	return
 }
 
+func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (report string) {
+	report = fmt.Sprintf("\n## Severity: %v\n", groupName)
+	report += "| OSV URL | CVSS | Ecosystem | Package | Version | Source |\n| --- | --- | --- | --- | --- | --- |\n"
+	for _, vuln := range *vs {
+		report += fmt.Sprintf(
+			"| %v | %v | %v | %v | %v | %v |\n",
+			fmt.Sprintf("https://osv.dev/%s", vuln.Id),
+			vuln.Severity,
+			vuln.PackageEcosystem,
+			vuln.PackageName,
+			vuln.PackageVersion,
+			vuln.Source,
+		)
+	}
+
+	return
+}
+
+func formatGitlabIssue(r *scanner.Report) (report string) {
+	sortedVulnerabilities := pie.SortUsing(r.Vulnerabilities, func(a, b scanner.Vulnerability) bool { return a.Severity < b.Severity })
+	groupedVulnerabilities := pie.GroupBy(sortedVulnerabilities, func(v scanner.Vulnerability) string { return string(v.SeverityScore) })
+
+	report = ""
+	for _, groupName := range scanner.SeverityScoreOrder {
+		if group, ok := groupedVulnerabilities[string(groupName)]; ok {
+			report += formatGitlabIssueTable(string(groupName), &group)
+		}
+	}
+
+	return
+}
 func formatSlackReports(reports []*scanner.Report, groupPath string) []goslack.MsgOption {
 	title := goslack.NewHeaderBlock(
 		goslack.NewTextBlockObject(
