@@ -48,10 +48,15 @@ func main() {
 		},
 		Action: func(cCtx *cli.Context) error {
 			verbose := cCtx.Bool("verbose")
+			targetGroupPath := cCtx.Args().First()
 
 			configureLogs(verbose)
 
-			groupPath, err := parseGroupPaths(cCtx.Args().First())
+			if targetGroupPath == "" {
+				log.Fatal().Msg("Gitlab group path missing")
+			}
+
+			groupPath, err := parseGroupPaths(targetGroupPath)
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to parse gitlab group path")
 			}
@@ -61,14 +66,14 @@ func main() {
 				log.Fatal().Err(err).Msg("Failed to create gitlab client.")
 			}
 
-			scan_report, err := scanner.Scan(groupPath, gitlabSvc)
+			scanReports, err := scanner.Scan(groupPath, gitlabSvc)
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to scan projects.")
 			}
 
 			if gitlab_issue := cCtx.Bool("gitlab-issue"); gitlab_issue {
 				log.Info().Msg("Creating issue in affected projects")
-				report.CreateGitlabIssues(scan_report, gitlabSvc)
+				report.CreateGitlabIssues(scanReports, gitlabSvc)
 			}
 
 			if slack_channel := cCtx.String("slack-channel"); slack_channel != "" {
@@ -76,13 +81,13 @@ func main() {
 
 				slackSvc := slack.New(cCtx.String("slack-token"), verbose)
 
-				if err := report.PostSlackReport(slack_channel, scan_report, slackSvc); err != nil {
+				if err := report.PostSlackReport(slack_channel, scanReports, targetGroupPath, slackSvc); err != nil {
 					log.Err(err).Msg("Failed to post slack report")
 				}
 			}
 
 			if cCtx.Bool("print-report") {
-				log.Info().Msgf("%#v", scan_report)
+				log.Info().Msgf("%#v", scanReports)
 			}
 
 			return nil

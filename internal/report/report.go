@@ -29,8 +29,10 @@ func CreateGitlabIssues(reports []*scanner.Report, s *gitlab.Service) {
 }
 
 func formatGitlabIssue(r *scanner.Report) (report string) {
+	sortedVulnerabilities := pie.SortUsing(r.Vulnerabilities, func(a, b scanner.Vulnerability) bool { return a.Severity > b.Severity })
+
 	report = "| OSV URL | CVSS | Ecosystem | Package | Version | Source |\n| --- | --- | --- | --- | --- | --- |\n"
-	for _, v := range r.Vulnerabilities {
+	for _, v := range sortedVulnerabilities {
 		report += fmt.Sprintf(
 			"| %v | %v | %v | %v | %v | %v |\n",
 			fmt.Sprintf("https://osv.dev/%s", v.Id),
@@ -45,8 +47,8 @@ func formatGitlabIssue(r *scanner.Report) (report string) {
 	return
 }
 
-func PostSlackReport(channelName string, reports []*scanner.Report, s *slack.Service) (err error) {
-	formattedReport := formatSlackReports(reports)
+func PostSlackReport(channelName string, reports []*scanner.Report, groupPath string, s *slack.Service) (err error) {
+	formattedReport := formatSlackReports(reports, groupPath)
 
 	if err = s.PostMessage(channelName, formattedReport...); err != nil {
 		return
@@ -55,7 +57,7 @@ func PostSlackReport(channelName string, reports []*scanner.Report, s *slack.Ser
 	return
 }
 
-func formatSlackReports(reports []*scanner.Report) []goslack.MsgOption {
+func formatSlackReports(reports []*scanner.Report, groupPath string) []goslack.MsgOption {
 	title := goslack.NewHeaderBlock(
 		goslack.NewTextBlockObject(
 			"plain_text",
@@ -63,15 +65,21 @@ func formatSlackReports(reports []*scanner.Report) []goslack.MsgOption {
 			true, false,
 		),
 	)
+	subtitle := goslack.NewContextBlock("subtitle", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Group scanned: %v", groupPath), false, false))
 
-	vulnerableReports := pie.Filter(reports, func(r *scanner.Report) bool { return r.IsVulnerable })
-	nonVulnerableReports := pie.Filter(reports, func(r *scanner.Report) bool { return !r.IsVulnerable })
+	reports = pie.SortUsing(reports, func(a, b *scanner.Report) bool { return len(a.Vulnerabilities) > len(b.Vulnerabilities) })
+
+	vulnerableReports := pie.Filter(reports, func(r *scanner.Report) bool { return !r.Error && r.IsVulnerable })
+	nonVulnerableReports := pie.Filter(reports, func(r *scanner.Report) bool { return !r.Error && !r.IsVulnerable })
+	errorReports := pie.Filter(reports, func(r *scanner.Report) bool { return r.Error })
 
 	vulnerableSections := pie.Flat(pie.Map(vulnerableReports, formatVulnerableReport))
-	nonVulnerableSections := pie.Flat(pie.Map(nonVulnerableReports, formatSafeReport))
+	nonVulnerableSections := pie.Flat(pie.Map(nonVulnerableReports, formatSimpleReport))
+	errorSections := pie.Flat(pie.Map(errorReports, formatSimpleReport))
 
 	blocks := []goslack.Block{
 		title,
+		subtitle,
 	}
 
 	if len(vulnerableSections) > 0 {
@@ -110,6 +118,24 @@ func formatSlackReports(reports []*scanner.Report) []goslack.MsgOption {
 		)
 	}
 
+	if len(errorReports) > 0 {
+		blocks = append(blocks,
+			goslack.NewDividerBlock(),
+			goslack.NewSectionBlock(
+				goslack.NewTextBlockObject(
+					"mrkdwn",
+					"*--> Unsuccessfully scanned* ❌",
+					false, false,
+				),
+				nil,
+				nil,
+			),
+		)
+		blocks = append(blocks,
+			errorSections...,
+		)
+	}
+
 	options := []goslack.MsgOption{goslack.MsgOptionBlocks(blocks...)}
 
 	return options
@@ -121,7 +147,7 @@ func formatVulnerableReport(r *scanner.Report) []goslack.Block {
 	if r.IssueUrl != "" {
 		reportUrl = fmt.Sprintf("<%s|Full report>", r.IssueUrl)
 	} else {
-		reportUrl = fmt.Sprintf("<%s|Full report>", r.Project.WebURL)
+		reportUrl = "_full report unavailable_"
 	}
 	vulnerabilityCount := fmt.Sprintf("*Vulnerability count*: %v", len(r.Vulnerabilities))
 
@@ -139,7 +165,7 @@ func formatVulnerableReport(r *scanner.Report) []goslack.Block {
 	}
 }
 
-func formatSafeReport(r *scanner.Report) []goslack.Block {
+func formatSimpleReport(r *scanner.Report) []goslack.Block {
 	return []goslack.Block{
 		goslack.NewSectionBlock(
 			nil,
