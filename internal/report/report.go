@@ -61,7 +61,7 @@ func severityBiggerThan(a string, b string) bool {
 	aFloat, err := strconv.ParseFloat(a, 32)
 	bFloat, err := strconv.ParseFloat(b, 32)
 	if err != nil {
-		log.Warn().Msgf("Failed to parse vulnerability CVSS %v to float, defaulting to string comparison", a)
+		log.Warn().Msgf("Failed to parse vulnerability CVSS %v and/or %v to float, defaulting to string comparison", a, b)
 		return a > b
 	}
 	return aFloat > bFloat
