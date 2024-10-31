@@ -5,6 +5,7 @@ import (
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/scanner"
 	"securityscanner/internal/slack"
+	"strconv"
 	"time"
 
 	"github.com/elliotchance/pie/v2"
@@ -56,14 +57,26 @@ func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (repo
 	return
 }
 
+func severityBiggerThan(a string, b string) bool {
+	aFloat, err := strconv.ParseFloat(a, 32)
+	bFloat, err := strconv.ParseFloat(b, 32)
+	if err != nil {
+		log.Warn().Msgf("Failed to parse vulnerability CVSS %v to float, defaulting to string comparison", a)
+		return a > b
+	}
+	return aFloat > bFloat
+}
+
 func formatGitlabIssue(r *scanner.Report) (report string) {
-	sortedVulnerabilities := pie.SortUsing(r.Vulnerabilities, func(a, b scanner.Vulnerability) bool { return a.Severity < b.Severity })
-	groupedVulnerabilities := pie.GroupBy(sortedVulnerabilities, func(v scanner.Vulnerability) string { return string(v.SeverityScore) })
+	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v scanner.Vulnerability) string { return string(v.SeverityScore) })
 
 	report = ""
 	for _, groupName := range scanner.SeverityScoreOrder {
 		if group, ok := groupedVulnerabilities[string(groupName)]; ok {
-			report += formatGitlabIssueTable(string(groupName), &group)
+			sortedVulnsInGroup := pie.SortUsing(group, func(a, b scanner.Vulnerability) bool {
+				return severityBiggerThan(a.Severity, b.Severity)
+			})
+			report += formatGitlabIssueTable(string(groupName), &sortedVulnsInGroup)
 		}
 	}
 
