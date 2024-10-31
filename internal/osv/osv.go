@@ -83,8 +83,7 @@ func Scan(dir string) (report *Report, err error) {
 	out, err := cmd.Output()
 	if err != nil {
 		if exitErr := err.(*exec.ExitError); exitErr != nil && exitErr.ExitCode() == 1 {
-
-			err = readOSVJson(report, out)
+			err = readOSVJson(out, &report)
 			if err != nil {
 				return
 			}
@@ -96,8 +95,8 @@ func Scan(dir string) (report *Report, err error) {
 	return
 }
 
-func readOSVJson(report *Report, jsonData []byte) (err error) {
-	err = json.Unmarshal(jsonData, report)
+func readOSVJson(data []byte, report **Report) (err error) {
+	err = json.Unmarshal(data, report)
 	if err != nil {
 		return
 	}

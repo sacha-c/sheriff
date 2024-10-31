@@ -18,7 +18,7 @@ func TestReadOSVJson(t *testing.T) {
 	}
 
 	got := new(Report)
-	err = readOSVJson(got, byteValue)
+	err = readOSVJson(byteValue, &got)
 
 	if err != nil {
 		t.Fatal(err)
