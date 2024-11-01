@@ -9,6 +9,7 @@ import (
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/osv"
 	"slices"
+	"sync"
 
 	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
@@ -55,14 +56,28 @@ func Scan(groupPath []string, svc *gitlab.Service) (reports []*Report, err error
 		return nil, errors.Join(fmt.Errorf("could not get project list of group %v", groupPath), err)
 	}
 
+	// Scan all projects in parallel
+	var wg sync.WaitGroup
+	reportsChan := make(chan *Report, len(projects))
 	for _, project := range projects {
-		log.Info().Msgf("Scanning project %v", project.Name)
-		if report, err := scanProject(project); err != nil {
-			log.Err(err).Msgf("Failed to scan project %v, skipping", project.Name)
-			reports = append(reports, &Report{Project: project, Error: true})
-		} else {
-			reports = append(reports, report)
-		}
+		wg.Add(1)
+		go func(reportsChan chan<- *Report) {
+			log.Info().Msgf("[%v] Scanning project", project.Name)
+			if report, err := scanProject(project); err != nil {
+				log.Err(err).Msgf("[%v] Failed to scan project, skipping", project.Name)
+				reportsChan <- &Report{Project: project, Error: true}
+			} else {
+				reportsChan <- report
+			}
+			defer wg.Done()
+		}(reportsChan)
+	}
+	wg.Wait()
+	close(reportsChan)
+
+	// Collect the reports
+	for r := range reportsChan {
+		reports = append(reports, r)
 	}
 
 	return
@@ -76,20 +91,22 @@ func scanProject(project *gogitlab.Project) (report *Report, err error) {
 	defer os.RemoveAll(dir)
 
 	// Clone the project
-	log.Info().Msgf("Cloning project in %v", dir)
+	log.Info().Msgf("[%v] Cloning project in %v", project.Name, dir)
 	if err = git.Clone(dir, project.HTTPURLToRepo); err != nil {
 		return nil, errors.Join(errors.New("failed to clone project"), err)
 	}
 
 	// Scan the project
+	log.Info().Msgf("[%v] Running osv-scanner...", project.Name)
 	osvReport, err := osv.Scan(dir)
 	if err != nil {
+		log.Warn().Msgf("[%v] Failed to run osv-scanner", project.Name)
 		return nil, errors.Join(errors.New("failed to run osv-scanner"), err)
 	}
 
 	report = reportFromOSV(osvReport, project)
 
-	log.Info().Msgf("Finished scanning project %v", project.Name)
+	log.Info().Msgf("[%v] Finished scanning project", project.Name)
 
 	return report, nil
 }

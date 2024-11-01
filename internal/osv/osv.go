@@ -3,8 +3,6 @@ package osv
 import (
 	"encoding/json"
 	"os/exec"
-
-	"github.com/rs/zerolog/log"
 )
 
 type ReferenceKind string
@@ -77,7 +75,6 @@ type Report struct {
 }
 
 func Scan(dir string) (report *Report, err error) {
-	log.Info().Msg("Starting osv-scanner...")
 	cmd := exec.Command("osv-scanner", "-r", "--verbosity", "error", "--format", "json", dir)
 
 	out, err := cmd.Output()
