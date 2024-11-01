@@ -6,6 +6,7 @@ import (
 	"securityscanner/internal/scanner"
 	"securityscanner/internal/slack"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/elliotchance/pie/v2"
@@ -14,19 +15,25 @@ import (
 )
 
 func CreateGitlabIssues(reports []*scanner.Report, s *gitlab.Service) {
+	var wg sync.WaitGroup
 	for _, r := range reports {
-		if r.IsVulnerable {
-			if issue, err := s.OpenVulnerabilityIssue(r.Project, formatGitlabIssue(r)); err != nil {
-				log.Err(err).Msgf("Failed to open or update issue for project %v", r.Project.Name)
+		wg.Add(1)
+		go func() {
+			if r.IsVulnerable {
+				if issue, err := s.OpenVulnerabilityIssue(r.Project, formatGitlabIssue(r)); err != nil {
+					log.Err(err).Msgf("[%s] Failed to open or update issue", r.Project.Name)
+				} else {
+					r.IssueUrl = issue.WebURL
+				}
 			} else {
-				r.IssueUrl = issue.WebURL
+				if err := s.CloseVulnerabilityIssue(r.Project); err != nil {
+					log.Err(err).Msgf("[%s] Failed to close issue", r.Project.Name)
+				}
 			}
-		} else {
-			if err := s.CloseVulnerabilityIssue(r.Project); err != nil {
-				log.Err(err).Msgf("Failed to close issue for project %v", r.Project.Name)
-			}
-		}
+			defer wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func PostSlackReport(channelName string, reports []*scanner.Report, groupPath string, s *slack.Service) (err error) {
