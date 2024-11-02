@@ -13,16 +13,6 @@ const (
 	PackageKind  ReferenceKind = "PACKAGE"
 )
 
-type SeverityScoreKind string
-
-const (
-	Critical SeverityScoreKind = "CRITICAL"
-	High     SeverityScoreKind = "HIGH"
-	Moderate SeverityScoreKind = "MODERATE"
-	Low      SeverityScoreKind = "LOW"
-	Unknown  SeverityScoreKind = "UNKNOWN"
-)
-
 type Source struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
@@ -34,7 +24,7 @@ type Reference struct {
 }
 
 type DatabaseSpecific struct {
-	Severity SeverityScoreKind `json:"severity"`
+	Severity string `json:"severity"`
 }
 
 type Vulnerability struct {

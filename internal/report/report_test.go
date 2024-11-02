@@ -5,40 +5,42 @@ import (
 	"testing"
 )
 
+// Severities are grouped by severity score kind
+// and they are displayed as a markdown table
 func TestFormatGitlabIssue(t *testing.T) {
 	mockVulnerabilities := []scanner.Vulnerability{
 		{
-			Id:               "test1",
-			PackageName:      "name",
-			PackageVersion:   "version",
-			PackageEcosystem: "ecosystem",
-			Source:           "test",
-			Severity:         "10.00",
-			SeverityScore:    "HIGH",
-			Summary:          "test",
-			Details:          "test",
+			Id:                "test1",
+			PackageName:       "name",
+			PackageVersion:    "version",
+			PackageEcosystem:  "ecosystem",
+			Source:            "test",
+			Severity:          "10.00",
+			SeverityScoreKind: scanner.Critical,
+			Summary:           "test",
+			Details:           "test",
 		},
 		{
-			Id:               "test2",
-			PackageName:      "name",
-			PackageVersion:   "version",
-			PackageEcosystem: "ecosystem",
-			Source:           "test",
-			Severity:         "0.00",
-			SeverityScore:    "LOW",
-			Summary:          "test",
-			Details:          "test",
+			Id:                "test2",
+			PackageName:       "name",
+			PackageVersion:    "version",
+			PackageEcosystem:  "ecosystem",
+			Source:            "test",
+			Severity:          "0.00",
+			SeverityScoreKind: scanner.Low,
+			Summary:           "test",
+			Details:           "test",
 		},
 		{
-			Id:               "test3",
-			PackageName:      "name",
-			PackageVersion:   "version",
-			PackageEcosystem: "ecosystem",
-			Source:           "test",
-			Severity:         "5.00",
-			SeverityScore:    "MODERATE",
-			Summary:          "test",
-			Details:          "test",
+			Id:                "test3",
+			PackageName:       "name",
+			PackageVersion:    "version",
+			PackageEcosystem:  "ecosystem",
+			Source:            "test",
+			Severity:          "5.00",
+			SeverityScoreKind: scanner.Moderate,
+			Summary:           "test",
+			Details:           "test",
 		},
 	}
 
@@ -51,7 +53,7 @@ func TestFormatGitlabIssue(t *testing.T) {
 	}
 
 	want := `
-## Severity: HIGH
+## Severity: CRITICAL
 | OSV URL | CVSS | Ecosystem | Package | Version | Source |
 | --- | --- | --- | --- | --- | --- |
 | https://osv.dev/test1 | 10.00 | ecosystem | name | version | test |
@@ -72,40 +74,41 @@ func TestFormatGitlabIssue(t *testing.T) {
 	}
 }
 
+// Within a severity kind, vulnerabilities should be sorted by severity score in descending order
 func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 	mockVulnerabilities := []scanner.Vulnerability{
 		{
-			Id:               "test1",
-			PackageName:      "name",
-			PackageVersion:   "version",
-			PackageEcosystem: "ecosystem",
-			Source:           "test",
-			Severity:         "10.00",
-			SeverityScore:    "HIGH",
-			Summary:          "test",
-			Details:          "test",
+			Id:                "test1",
+			PackageName:       "name",
+			PackageVersion:    "version",
+			PackageEcosystem:  "ecosystem",
+			Source:            "test",
+			Severity:          "8.00",
+			SeverityScoreKind: scanner.High, // This has no effect on this test
+			Summary:           "test",
+			Details:           "test",
 		},
 		{
-			Id:               "test2",
-			PackageName:      "name",
-			PackageVersion:   "version",
-			PackageEcosystem: "ecosystem",
-			Source:           "test",
-			Severity:         "0.00",
-			SeverityScore:    "HIGH",
-			Summary:          "test",
-			Details:          "test",
+			Id:                "test2",
+			PackageName:       "name",
+			PackageVersion:    "version",
+			PackageEcosystem:  "ecosystem",
+			Source:            "test",
+			Severity:          "8.9",
+			SeverityScoreKind: scanner.High, // This has no effect on this test
+			Summary:           "test",
+			Details:           "test",
 		},
 		{
-			Id:               "test3",
-			PackageName:      "name",
-			PackageVersion:   "version",
-			PackageEcosystem: "ecosystem",
-			Source:           "test",
-			Severity:         "5.00",
-			SeverityScore:    "HIGH",
-			Summary:          "test",
-			Details:          "test",
+			Id:                "test3",
+			PackageName:       "name",
+			PackageVersion:    "version",
+			PackageEcosystem:  "ecosystem",
+			Source:            "test",
+			Severity:          "8.5",
+			SeverityScoreKind: scanner.High, // This has no effect on this test
+			Summary:           "test",
+			Details:           "test",
 		},
 	}
 
@@ -121,9 +124,9 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 ## Severity: HIGH
 | OSV URL | CVSS | Ecosystem | Package | Version | Source |
 | --- | --- | --- | --- | --- | --- |
-| https://osv.dev/test1 | 10.00 | ecosystem | name | version | test |
-| https://osv.dev/test3 | 5.00 | ecosystem | name | version | test |
-| https://osv.dev/test2 | 0.00 | ecosystem | name | version | test |
+| https://osv.dev/test2 | 8.9 | ecosystem | name | version | test |
+| https://osv.dev/test3 | 8.5 | ecosystem | name | version | test |
+| https://osv.dev/test1 | 8.00 | ecosystem | name | version | test |
 `
 	if got != want {
 		t.Errorf("Expected %v\n, got %v\n", want, got)

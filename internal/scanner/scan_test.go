@@ -6,7 +6,7 @@ import (
 )
 
 func TestReportFromOSV(t *testing.T) {
-	mockReport := createMockReport("HIGH")
+	mockReport := createMockReport("10.0")
 	got := reportFromOSV(mockReport, nil)
 
 	if got == nil {
@@ -18,15 +18,15 @@ func TestReportFromOSV(t *testing.T) {
 	}
 
 	want := Vulnerability{
-		Id:               "test",
-		PackageName:      "name",
-		PackageVersion:   "version",
-		PackageEcosystem: "ecosystem",
-		Source:           "test",
-		Severity:         "test",
-		SeverityScore:    "HIGH",
-		Summary:          "test",
-		Details:          "test",
+		Id:                "test",
+		PackageName:       "name",
+		PackageVersion:    "version",
+		PackageEcosystem:  "ecosystem",
+		Source:            "test",
+		Severity:          "10.0",
+		SeverityScoreKind: "CRITICAL",
+		Summary:           "test",
+		Details:           "test",
 	}
 
 	if got.Vulnerabilities[0] != want {
@@ -34,20 +34,35 @@ func TestReportFromOSV(t *testing.T) {
 	}
 }
 
-func TestReportFromOSVHasUnknownSeverityScore(t *testing.T) {
-	mockReport := createMockReport("")
-	got := reportFromOSV(mockReport, nil)
-
-	if got == nil {
-		t.Fatal("Expected report to not be nil")
+func TestReportFromOSVHasCorrectSeverityKind(t *testing.T) {
+	testCases := map[string]SeverityScoreKind{
+		"":        Unknown,
+		"unknown": Unknown,
+		"0.0":     Low,
+		"2.0":     Low,
+		"3.0":     Moderate,
+		"8.0":     High,
+		"9.0":     Critical,
+		"10.0":    Critical,
 	}
 
-	if got.Vulnerabilities[0].SeverityScore != "UNKNOWN" {
-		t.Errorf("Expected severity score to be UNKNOWN, got %v", got.Vulnerabilities[0].SeverityScore)
+	for input, want := range testCases {
+		t.Run(input, func(t *testing.T) {
+			mockReport := createMockReport(input)
+			got := reportFromOSV(mockReport, nil)
+
+			if got == nil {
+				t.Fatal("Expected report to not be nil")
+			}
+
+			if got.Vulnerabilities[0].SeverityScoreKind != want {
+				t.Errorf("Expected severity score to be %v, got %v", want, got.Vulnerabilities[0].SeverityScoreKind)
+			}
+		})
 	}
 }
 
-func createMockReport(severityScore osv.SeverityScoreKind) *osv.Report {
+func createMockReport(maxSeverity string) *osv.Report {
 	return &osv.Report{
 		Results: []osv.Result{
 			{
@@ -74,7 +89,7 @@ func createMockReport(severityScore osv.SeverityScoreKind) *osv.Report {
 									},
 								},
 								DatabaseSpecific: osv.DatabaseSpecific{
-									Severity: severityScore,
+									Severity: "whatever",
 								},
 							},
 						},
@@ -83,7 +98,7 @@ func createMockReport(severityScore osv.SeverityScoreKind) *osv.Report {
 								Ids: []string{"test"},
 
 								Aliases:     []string{"test"},
-								MaxSeverity: "test",
+								MaxSeverity: maxSeverity,
 							},
 						},
 					},

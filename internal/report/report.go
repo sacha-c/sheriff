@@ -5,6 +5,7 @@ import (
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/scanner"
 	"securityscanner/internal/slack"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -13,6 +14,10 @@ import (
 	"github.com/rs/zerolog/log"
 	goslack "github.com/slack-go/slack"
 )
+
+// SeverityScoreOrder represents the order of SeverityScoreKind by their score in descending order
+// which is how we want to display it in the report.
+var SeverityScoreOrder = getSeverityScoreOrder(scanner.SeverityScoreThresholds)
 
 func CreateGitlabIssues(reports []*scanner.Report, s *gitlab.Service) {
 	var wg sync.WaitGroup
@@ -46,11 +51,11 @@ func PostSlackReport(channelName string, reports []*scanner.Report, groupPath st
 	return
 }
 
-func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (report string) {
-	report = fmt.Sprintf("\n## Severity: %v\n", groupName)
-	report += "| OSV URL | CVSS | Ecosystem | Package | Version | Source |\n| --- | --- | --- | --- | --- | --- |\n"
+func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (md string) {
+	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
+	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Source |\n| --- | --- | --- | --- | --- | --- |\n"
 	for _, vuln := range *vs {
-		report += fmt.Sprintf(
+		md += fmt.Sprintf(
 			"| %v | %v | %v | %v | %v | %v |\n",
 			fmt.Sprintf("https://osv.dev/%s", vuln.Id),
 			vuln.Severity,
@@ -74,16 +79,16 @@ func severityBiggerThan(a string, b string) bool {
 	return aFloat > bFloat
 }
 
-func formatGitlabIssue(r *scanner.Report) (report string) {
-	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v scanner.Vulnerability) string { return string(v.SeverityScore) })
+func formatGitlabIssue(r *scanner.Report) (mdReport string) {
+	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v scanner.Vulnerability) string { return string(v.SeverityScoreKind) })
 
-	report = ""
-	for _, groupName := range scanner.SeverityScoreOrder {
+	mdReport = ""
+	for _, groupName := range SeverityScoreOrder {
 		if group, ok := groupedVulnerabilities[string(groupName)]; ok {
 			sortedVulnsInGroup := pie.SortUsing(group, func(a, b scanner.Vulnerability) bool {
 				return severityBiggerThan(a.Severity, b.Severity)
 			})
-			report += formatGitlabIssueTable(string(groupName), &sortedVulnsInGroup)
+			mdReport += formatGitlabIssueTable(string(groupName), &sortedVulnsInGroup)
 		}
 	}
 
@@ -207,4 +212,17 @@ func formatSimpleReport(r *scanner.Report) []goslack.Block {
 			nil,
 		),
 	}
+}
+
+// getSeverityScoreOrder returns a slice of SeverityScoreKind sorted by their score in descending order
+func getSeverityScoreOrder(thresholds map[scanner.SeverityScoreKind]float64) []scanner.SeverityScoreKind {
+	kinds := make([]scanner.SeverityScoreKind, 0, len(thresholds))
+	for kind := range thresholds {
+		kinds = append(kinds, kind)
+	}
+	sort.Slice(kinds, func(i, j int) bool {
+		return thresholds[kinds[i]] > thresholds[kinds[j]]
+	})
+
+	return kinds
 }

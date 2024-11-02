@@ -8,7 +8,7 @@ import (
 	"securityscanner/internal/git"
 	"securityscanner/internal/gitlab"
 	"securityscanner/internal/osv"
-	"slices"
+	"strconv"
 	"sync"
 
 	"github.com/elliotchance/pie/v2"
@@ -16,19 +16,40 @@ import (
 	gogitlab "github.com/xanzy/go-gitlab"
 )
 
+type SeverityScoreKind string
+
+const (
+	Critical SeverityScoreKind = "CRITICAL"
+	High     SeverityScoreKind = "HIGH"
+	Moderate SeverityScoreKind = "MODERATE"
+	Low      SeverityScoreKind = "LOW"
+	Unknown  SeverityScoreKind = "UNKNOWN"
+)
+
+// These thresholds are inferred from CSVSS reports we've seen in the wild.
+// The value represents the lower bound (inclusive) of the severity score kind.
+// They may need to be adjusted as we observe more vulnerabilities.
+var SeverityScoreThresholds = map[SeverityScoreKind]float64{
+	Critical: 9.0,
+	High:     8.0,
+	Moderate: 3.0,
+	Low:      0.0,
+}
+
 const TempScanDir = "tmp_scans"
 
+// Representation of what a vulnerability is within our scanner
 type Vulnerability struct {
-	Id               string
-	PackageName      string
-	PackageVersion   string
-	PackageUrl       string
-	PackageEcosystem string
-	Source           string
-	Severity         string
-	SeverityScore    osv.SeverityScoreKind
-	Summary          string
-	Details          string
+	Id                string
+	PackageName       string
+	PackageVersion    string
+	PackageUrl        string
+	PackageEcosystem  string
+	Source            string
+	Severity          string
+	SeverityScoreKind SeverityScoreKind
+	Summary           string
+	Details           string
 }
 
 type Report struct {
@@ -38,8 +59,6 @@ type Report struct {
 	IssueUrl        string // URL of the GitLab issue. Conditionally set if --gitlab-issue is passed
 	Error           bool   // Conditionally set if an error occurred during the scan
 }
-
-var SeverityScoreOrder = []osv.SeverityScoreKind{osv.Critical, osv.High, osv.Moderate, osv.Low, osv.Unknown}
 
 func Scan(groupPath []string, svc *gitlab.Service) (reports []*Report, err error) {
 	// Create a temporary directory to store the scans
@@ -128,22 +147,18 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 				source := filepath.Base(p.Source.Path)
 				sevIdx := pie.FindFirstUsing(pkg.Groups, func(g osv.Group) bool { return pie.Contains(g.Ids, v.Id) || pie.Contains(g.Aliases, v.Id) })
 				severity := pkg.Groups[sevIdx].MaxSeverity
-				var severityScore osv.SeverityScoreKind = osv.Unknown
-				if slices.Contains(SeverityScoreOrder, v.DatabaseSpecific.Severity) {
-					severityScore = v.DatabaseSpecific.Severity
-				}
 
 				vs = append(vs, Vulnerability{
-					Id:               v.Id,
-					PackageName:      pkg.PackageInfo.Name,
-					PackageVersion:   pkg.PackageInfo.Version,
-					PackageUrl:       packageRef.Url,
-					PackageEcosystem: pkg.PackageInfo.Ecosystem,
-					Source:           source,
-					Severity:         severity,
-					SeverityScore:    severityScore,
-					Summary:          v.Summary,
-					Details:          v.Detail,
+					Id:                v.Id,
+					PackageName:       pkg.PackageInfo.Name,
+					PackageVersion:    pkg.PackageInfo.Version,
+					PackageUrl:        packageRef.Url,
+					PackageEcosystem:  pkg.PackageInfo.Ecosystem,
+					Source:            source,
+					Severity:          severity,
+					SeverityScoreKind: getSeverityScoreKind(severity),
+					Summary:           v.Summary,
+					Details:           v.Detail,
 				})
 			}
 		}
@@ -154,4 +169,24 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 		IsVulnerable:    len(vs) > 0,
 		Vulnerabilities: vs,
 	}
+}
+
+func getSeverityScoreKind(severity string) SeverityScoreKind {
+	if severity == "" {
+		log.Debug().Msg("Severity is empty, defaulting to Unknown")
+		return Unknown
+	}
+	floatSeverity, err := strconv.ParseFloat(severity, 32)
+	if err != nil {
+		log.Warn().Msgf("Failed to parse severity %v to float, defaulting to Unknown", severity)
+		return Unknown
+	}
+
+	maxKind := Unknown
+	for k, v := range SeverityScoreThresholds {
+		if floatSeverity >= v && v >= SeverityScoreThresholds[maxKind] {
+			maxKind = k
+		}
+	}
+	return maxKind
 }
