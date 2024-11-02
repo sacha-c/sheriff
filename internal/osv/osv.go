@@ -2,7 +2,9 @@ package osv
 
 import (
 	"encoding/json"
-	"os/exec"
+	"securityscanner/internal/shell"
+
+	"github.com/rs/zerolog/log"
 )
 
 type ReferenceKind string
@@ -64,29 +66,36 @@ type Report struct {
 	Results []Result `json:"results"`
 }
 
-func Scan(dir string) (report *Report, err error) {
-	cmd := exec.Command("osv-scanner", "-r", "--verbosity", "error", "--format", "json", dir)
+// Scan runs osv-scanner on the given directory
+// and returns a Report struct with the results
+func Scan(dir string) (*Report, error) {
+	var report *Report
 
-	out, err := cmd.Output()
+	cmdOut, err := shell.ShellCommandRunner.Run("osv-scanner", "-r", "--verbosity", "error", "--format", "json", dir)
+
+	//Handle exit codes according to https://google.github.io/osv-scanner/output/#return-codes
+	if cmdOut.ExitCode == 0 && err == nil {
+		// Successful run of osv-scanner, no report because no vulnerabilities found
+		log.Debug().Msgf("osv-scanner did not find vulnerabilities; returned exit code %v", cmdOut.ExitCode)
+		return nil, nil
+	} else if cmdOut.ExitCode > 1 || cmdOut.ExitCode == -1 {
+		// Failed to run osv-scanner at all, or it returned an error
+		log.Debug().Msgf("osv-scanner failed to run; returned exit code %v", cmdOut.ExitCode)
+		return nil, err
+	}
+	// Error code 1, osv-scanner ran successfully and found vulnerabilities
+	log.Debug().Msg("osv-scanner ran successfully; found vulnerabilities")
+	report, err = readOSVJson(cmdOut.Output)
 	if err != nil {
-		if exitErr := err.(*exec.ExitError); exitErr != nil && exitErr.ExitCode() == 1 {
-			err = readOSVJson(out, &report)
-			if err != nil {
-				return
-			}
-		}
-
-		return
+		return report, err
 	}
 
-	return
+	return report, nil
 }
 
-func readOSVJson(data []byte, report **Report) (err error) {
-	err = json.Unmarshal(data, report)
-	if err != nil {
-		return
-	}
-
+// readOSVJson reads the JSON output from osv-scanner
+// and returns a Report struct with the results
+func readOSVJson(data []byte) (report *Report, err error) {
+	err = json.Unmarshal(data, &report)
 	return
 }
