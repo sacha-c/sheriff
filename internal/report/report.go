@@ -53,7 +53,7 @@ func PostSlackReport(channelName string, reports []*scanner.Report, groupPath st
 
 func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (md string) {
 	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
-	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
 	for _, vuln := range *vs {
 		md += fmt.Sprintf(
 			"| %v | %v | %v | %v | %v | %v | %v |\n",

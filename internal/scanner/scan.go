@@ -160,7 +160,7 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 					SeverityScoreKind: getSeverityScoreKind(severity),
 					Summary:           v.Summary,
 					Details:           v.Detail,
-					FixAvailable:      hasAvaialbleFix(v),
+					FixAvailable:      hasFixAvailable(v),
 				})
 			}
 		}
@@ -193,7 +193,7 @@ func getSeverityScoreKind(severity string) SeverityScoreKind {
 	return maxKind
 }
 
-func hasAvaialbleFix(v osv.Vulnerability) bool {
+func hasFixAvailable(v osv.Vulnerability) bool {
 	// If there is any version with a fixed event, then the vulnerability has at least one version
 	// that is not vulnerable
 	for _, a := range v.Affected {

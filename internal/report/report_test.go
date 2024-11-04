@@ -54,17 +54,17 @@ func TestFormatGitlabIssue(t *testing.T) {
 
 	want := `
 ## Severity: CRITICAL
-| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |
+| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
 | --- | --- | --- | --- | --- | --- | --- |
 | https://osv.dev/test1 | 10.00 | ecosystem | name | version | ❌ | test |
 
 ## Severity: MODERATE
-| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |
+| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
 | --- | --- | --- | --- | --- | --- | --- |
 | https://osv.dev/test3 | 5.00 | ecosystem | name | version | ❌ | test |
 
 ## Severity: LOW
-| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |
+| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
 | --- | --- | --- | --- | --- | --- | --- |
 | https://osv.dev/test2 | 0.00 | ecosystem | name | version | ❌ | test |
 `
@@ -122,7 +122,7 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 
 	want := `
 ## Severity: HIGH
-| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |
+| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
 | --- | --- | --- | --- | --- | --- | --- |
 | https://osv.dev/test2 | 8.9 | ecosystem | name | version | ❌ | test |
 | https://osv.dev/test3 | 8.5 | ecosystem | name | version | ❌ | test |
