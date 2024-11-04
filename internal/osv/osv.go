@@ -29,6 +29,19 @@ type DatabaseSpecific struct {
 	Severity string `json:"severity"`
 }
 
+type Event struct {
+	Introduced string `json:"introduced"`
+	Fixed      string `json:"fixed"`
+}
+
+type Range struct {
+	Events []Event `json:"events"`
+}
+
+type Affected struct {
+	Ranges []Range `json:"ranges"`
+}
+
 type Vulnerability struct {
 	Id               string           `json:"id"`
 	Aliases          []string         `json:"aliases"`
@@ -37,6 +50,7 @@ type Vulnerability struct {
 	Version          string           `json:"schema_version"`
 	References       []Reference      `json:"references"`
 	DatabaseSpecific DatabaseSpecific `json:"database_specific"`
+	Affected         []Affected       `json:"affected"`
 }
 
 type Group struct {

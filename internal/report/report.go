@@ -53,15 +53,16 @@ func PostSlackReport(channelName string, reports []*scanner.Report, groupPath st
 
 func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (md string) {
 	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
-	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Source |\n| --- | --- | --- | --- | --- | --- |\n"
+	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
 	for _, vuln := range *vs {
 		md += fmt.Sprintf(
-			"| %v | %v | %v | %v | %v | %v |\n",
+			"| %v | %v | %v | %v | %v | %v | %v |\n",
 			fmt.Sprintf("https://osv.dev/%s", vuln.Id),
 			vuln.Severity,
 			vuln.PackageEcosystem,
 			vuln.PackageName,
 			vuln.PackageVersion,
+			markdownBoolean(vuln.FixAvailable),
 			vuln.Source,
 		)
 	}
@@ -225,4 +226,11 @@ func getSeverityScoreOrder(thresholds map[scanner.SeverityScoreKind]float64) []s
 	})
 
 	return kinds
+}
+
+func markdownBoolean(b bool) string {
+	if b {
+		return "✅"
+	}
+	return "❌"
 }

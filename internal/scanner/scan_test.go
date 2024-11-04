@@ -10,11 +10,11 @@ func TestReportFromOSV(t *testing.T) {
 	got := reportFromOSV(mockReport, nil)
 
 	if got == nil {
-		t.Fatal("Expected report to not be nil")
+		t.Fatal("Wanted report to not be nil")
 	}
 
 	if len(got.Vulnerabilities) != 1 {
-		t.Errorf("Expected 1 vulnerability, got %v", len(got.Vulnerabilities))
+		t.Errorf("Wanted 1 vulnerability, got %v", len(got.Vulnerabilities))
 	}
 
 	want := Vulnerability{
@@ -30,7 +30,7 @@ func TestReportFromOSV(t *testing.T) {
 	}
 
 	if got.Vulnerabilities[0] != want {
-		t.Errorf("Expected %v, got %v", want, got.Vulnerabilities[0])
+		t.Errorf("Wanted %v, got %v", want, got.Vulnerabilities[0])
 	}
 }
 
@@ -52,17 +52,43 @@ func TestReportFromOSVHasCorrectSeverityKind(t *testing.T) {
 			got := reportFromOSV(mockReport, nil)
 
 			if got == nil {
-				t.Fatal("Expected report to not be nil")
+				t.Fatal("Wanted report to not be nil")
 			}
 
 			if got.Vulnerabilities[0].SeverityScoreKind != want {
-				t.Errorf("Expected severity score to be %v, got %v", want, got.Vulnerabilities[0].SeverityScoreKind)
+				t.Errorf("Wanted severity score to be %v, got %v", want, got.Vulnerabilities[0].SeverityScoreKind)
 			}
 		})
 	}
 }
 
-func createMockReport(maxSeverity string) *osv.Report {
+func TestReportContainsHasAvailableFix(t *testing.T) {
+	mockReport := createMockReport("10.0", osv.Affected{
+		Ranges: []osv.Range{
+			{
+				Events: []osv.Event{
+					{
+						Introduced: "0.0.0",
+					},
+					{
+						Fixed: "1.0.0",
+					},
+				},
+			},
+		},
+	})
+	got := reportFromOSV(mockReport, nil)
+
+	if got == nil {
+		t.Fatal("Wanted report to not be nil")
+	}
+
+	if !got.Vulnerabilities[0].FixAvailable {
+		t.Error("Wanted fix to be available")
+	}
+}
+
+func createMockReport(maxSeverity string, affectedVersions ...osv.Affected) *osv.Report {
 	return &osv.Report{
 		Results: []osv.Result{
 			{
@@ -91,6 +117,7 @@ func createMockReport(maxSeverity string) *osv.Report {
 								DatabaseSpecific: osv.DatabaseSpecific{
 									Severity: "whatever",
 								},
+								Affected: affectedVersions,
 							},
 						},
 						Groups: []osv.Group{

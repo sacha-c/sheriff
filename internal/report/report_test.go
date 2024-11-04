@@ -49,28 +49,28 @@ func TestFormatGitlabIssue(t *testing.T) {
 	})
 
 	if got == "" {
-		t.Errorf("Expected issueString to not be empty")
+		t.Errorf("Wanted issueString to not be empty")
 	}
 
 	want := `
 ## Severity: CRITICAL
-| OSV URL | CVSS | Ecosystem | Package | Version | Source |
-| --- | --- | --- | --- | --- | --- |
-| https://osv.dev/test1 | 10.00 | ecosystem | name | version | test |
+| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| https://osv.dev/test1 | 10.00 | ecosystem | name | version | ❌ | test |
 
 ## Severity: MODERATE
-| OSV URL | CVSS | Ecosystem | Package | Version | Source |
-| --- | --- | --- | --- | --- | --- |
-| https://osv.dev/test3 | 5.00 | ecosystem | name | version | test |
+| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| https://osv.dev/test3 | 5.00 | ecosystem | name | version | ❌ | test |
 
 ## Severity: LOW
-| OSV URL | CVSS | Ecosystem | Package | Version | Source |
-| --- | --- | --- | --- | --- | --- |
-| https://osv.dev/test2 | 0.00 | ecosystem | name | version | test |
+| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| https://osv.dev/test2 | 0.00 | ecosystem | name | version | ❌ | test |
 `
 
 	if got != want {
-		t.Errorf("Expected %v\n, got %v\n", want, got)
+		t.Errorf("Wanted %v\n, got %v\n", want, got)
 	}
 }
 
@@ -117,18 +117,34 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 	})
 
 	if got == "" {
-		t.Errorf("Expected issueString to not be empty")
+		t.Errorf("Wanted issueString to not be empty")
 	}
 
 	want := `
 ## Severity: HIGH
-| OSV URL | CVSS | Ecosystem | Package | Version | Source |
-| --- | --- | --- | --- | --- | --- |
-| https://osv.dev/test2 | 8.9 | ecosystem | name | version | test |
-| https://osv.dev/test3 | 8.5 | ecosystem | name | version | test |
-| https://osv.dev/test1 | 8.00 | ecosystem | name | version | test |
+| OSV URL | CVSS | Ecosystem | Package | Version | Available Fix | Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| https://osv.dev/test2 | 8.9 | ecosystem | name | version | ❌ | test |
+| https://osv.dev/test3 | 8.5 | ecosystem | name | version | ❌ | test |
+| https://osv.dev/test1 | 8.00 | ecosystem | name | version | ❌ | test |
 `
 	if got != want {
-		t.Errorf("Expected %v\n, got %v\n", want, got)
+		t.Errorf("Wanted %v\n, got %v\n", want, got)
+	}
+}
+
+func TestMarkdownBoolean(t *testing.T) {
+	testCases := map[bool]string{
+		true:  "✅",
+		false: "❌",
+	}
+
+	for input, want := range testCases {
+		t.Run(want, func(t *testing.T) {
+			got := markdownBoolean(input)
+			if got != want {
+				t.Errorf("Wanted %v, got %v", want, got)
+			}
+		})
 	}
 }
