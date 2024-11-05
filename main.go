@@ -67,7 +67,7 @@ func main() {
 				zerolog.Fatal().Err(err).Msg("Failed to create Slack service")
 			}
 
-			gitService := git.New()
+			gitService := git.New(cCtx.String("gitlab-token"))
 			osvService := osv.New()
 
 			scanService := scan.New(gitlabService, slackService, gitService, osvService)

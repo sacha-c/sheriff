@@ -1,2 +1,3 @@
 securityscanner/internal/gitlab/client.go
 securityscanner/internal/slack/client.go
+securityscanner/internal/git/client.go
