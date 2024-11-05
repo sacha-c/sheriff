@@ -10,13 +10,24 @@ import (
 )
 
 type Service struct {
-	client *slack.Client
+	client IClient
 }
 
-func New(token string, debug bool) *Service {
-	return &Service{
-		client: slack.New(token, slack.OptionDebug(debug)),
+func newService(c IClient) Service {
+	return Service{
+		client: c,
 	}
+}
+
+func NewService(token string, debug bool) (*Service, error) {
+	slackClient := slack.New(token, slack.OptionDebug(debug))
+	if slackClient == nil {
+		return nil, errors.New("failed to create slack client")
+	}
+
+	s := newService(&Client{client: slackClient})
+
+	return &s, nil
 }
 
 func (s *Service) PostMessage(channelName string, options ...slack.MsgOption) (err error) {

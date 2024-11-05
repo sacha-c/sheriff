@@ -79,10 +79,12 @@ func main() {
 			if slack_channel := cCtx.String("slack-channel"); slack_channel != "" {
 				log.Info().Msgf("Posting report to slack channel %v", slack_channel)
 
-				slackSvc := slack.New(cCtx.String("slack-token"), verbose)
-
-				if err := report.PostSlackReport(slack_channel, scanReports, targetGroupPath, slackSvc); err != nil {
-					log.Err(err).Msg("Failed to post slack report")
+				if slackSvc, err := slack.NewService(cCtx.String("slack-token"), verbose); err != nil {
+					log.Err(err).Msg("Failed to create slack client.")
+				} else {
+					if err := report.PostSlackReport(slack_channel, scanReports, targetGroupPath, slackSvc); err != nil {
+						log.Err(err).Msg("Failed to post slack report")
+					}
 				}
 			}
 
