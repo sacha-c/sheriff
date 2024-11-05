@@ -6,6 +6,8 @@ import (
 
 	"io"
 	"os"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestReadOSVJson(t *testing.T) {
@@ -17,40 +19,19 @@ func TestReadOSVJson(t *testing.T) {
 	var got *Report
 	got, err = readOSVJson(byteValue)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(got.Results))
+	assert.Equal(t, 2, len(got.Results[0].Packages))
 
-	if len(got.Results) != 1 {
-		t.Errorf("Wanted 1 result, got %v", len(got.Results))
-	}
-
-	if len(got.Results[0].Packages) != 2 {
-		t.Errorf("Wanted 2 packages, got %v", len(got.Results[0].Packages))
-	}
 	firstPackage := got.Results[0].Packages[0]
 
-	if len(firstPackage.Vulnerabilities) != 1 {
-		t.Errorf("Wanted 1 vulnerability, got %v", len(firstPackage.Vulnerabilities))
-	}
-
-	if len(firstPackage.Vulnerabilities[0].Affected) != 1 {
-		t.Errorf("Wanted 1 affected, got %v", len(firstPackage.Vulnerabilities[0].Affected))
-	}
+	assert.Equal(t, 1, len(firstPackage.Vulnerabilities))
+	assert.Equal(t, 1, len(firstPackage.Vulnerabilities[0].Affected))
 
 	t.Run("Test affected ranges", func(t *testing.T) {
-
-		if len(firstPackage.Vulnerabilities[0].Affected[0].Ranges) != 1 {
-			t.Errorf("Wanted 1 range, got %v", len(firstPackage.Vulnerabilities[0].Affected[0].Ranges))
-		}
-
-		if len(firstPackage.Vulnerabilities[0].Affected[0].Ranges[0].Events) != 2 {
-			t.Errorf("Wanted 2 events, got %v", len(firstPackage.Vulnerabilities[0].Affected[0].Ranges[0].Events))
-		}
-
-		if firstPackage.Vulnerabilities[0].Affected[0].Ranges[0].Events[1].Fixed != "2.8.0" {
-			t.Errorf("Wanted fixed version to be '2.8.0', got %v", firstPackage.Vulnerabilities[0].Affected[0].Ranges[0].Events[1].Fixed)
-		}
+		assert.Equal(t, 1, len(firstPackage.Vulnerabilities[0].Affected[0].Ranges))
+		assert.Equal(t, 2, len(firstPackage.Vulnerabilities[0].Affected[0].Ranges[0].Events))
+		assert.Equal(t, "2.8.0", firstPackage.Vulnerabilities[0].Affected[0].Ranges[0].Events[1].Fixed)
 	})
 
 }
@@ -67,13 +48,11 @@ func TestScanReturnsFullReport(t *testing.T) {
 	svc := NewService()
 
 	report, err := svc.Scan("test-dir")
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	if len(report.Results) != 1 {
-		t.Errorf("Wanted 1 result, got %v", len(report.Results))
-	}
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(report.Results))
+	assert.Equal(t, 2, len(report.Results[0].Packages))
+	assert.Equal(t, 1, len(report.Results[0].Packages[0].Vulnerabilities))
 }
 
 func TestScanWithZeroExitCodeReturnsEmptyReport(t *testing.T) {
@@ -88,14 +67,9 @@ func TestScanWithZeroExitCodeReturnsEmptyReport(t *testing.T) {
 	svc := NewService()
 
 	report, err := svc.Scan("test-dir")
-	if err != nil {
-		t.Fatalf("Wanted no error, got %v", err)
-	}
 
-	if report != nil {
-		t.Errorf("Wanted report to be nil, but got %v", report)
-	}
-
+	assert.Nil(t, err)
+	assert.Nil(t, report)
 }
 
 type mockCommandRunner struct {

@@ -3,6 +3,8 @@ package report
 import (
 	"securityscanner/internal/scanner"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Severities are grouped by severity score kind
@@ -48,10 +50,6 @@ func TestFormatGitlabIssue(t *testing.T) {
 		Vulnerabilities: mockVulnerabilities,
 	})
 
-	if got == "" {
-		t.Errorf("Wanted issueString to not be empty")
-	}
-
 	want := `
 ## Severity: CRITICAL
 | OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
@@ -69,9 +67,8 @@ func TestFormatGitlabIssue(t *testing.T) {
 | https://osv.dev/test2 | 0.00 | ecosystem | name | version | ❌ | test |
 `
 
-	if got != want {
-		t.Errorf("Wanted %v\n, got %v\n", want, got)
-	}
+	assert.NotEmpty(t, got)
+	assert.Equal(t, want, got)
 }
 
 // Within a severity kind, vulnerabilities should be sorted by severity score in descending order
@@ -116,10 +113,6 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 		Vulnerabilities: mockVulnerabilities,
 	})
 
-	if got == "" {
-		t.Errorf("Wanted issueString to not be empty")
-	}
-
 	want := `
 ## Severity: HIGH
 | OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
@@ -128,9 +121,8 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 | https://osv.dev/test3 | 8.5 | ecosystem | name | version | ❌ | test |
 | https://osv.dev/test1 | 8.00 | ecosystem | name | version | ❌ | test |
 `
-	if got != want {
-		t.Errorf("Wanted %v\n, got %v\n", want, got)
-	}
+	assert.NotEmpty(t, got)
+	assert.Equal(t, want, got)
 }
 
 func TestMarkdownBoolean(t *testing.T) {
@@ -142,9 +134,7 @@ func TestMarkdownBoolean(t *testing.T) {
 	for input, want := range testCases {
 		t.Run(want, func(t *testing.T) {
 			got := markdownBoolean(input)
-			if got != want {
-				t.Errorf("Wanted %v, got %v", want, got)
-			}
+			assert.Equal(t, want, got)
 		})
 	}
 }
