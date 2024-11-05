@@ -12,7 +12,13 @@ import (
 const VulnerabilityIssueTitle = "SecurityScanner - Vulnerability report"
 
 type Service struct {
-	client *gitlab.Client
+	client IClient
+}
+
+func newService(c IClient) Service {
+	return Service{
+		client: c,
+	}
 }
 
 func NewService(gitlabToken string) (*Service, error) {
@@ -21,14 +27,14 @@ func NewService(gitlabToken string) (*Service, error) {
 		return nil, err
 	}
 
-	return &Service{
-		client: gitlabClient,
-	}, nil
+	s := newService(&Client{client: gitlabClient})
+
+	return &s, nil
 }
 
 func (s *Service) getTopLevelGroup(groupPath string) (*gitlab.Group, error) {
 	log.Info().Msgf("Getting top-level group %v", groupPath)
-	groups, _, err := s.client.Groups.ListGroups(&gitlab.ListGroupsOptions{
+	groups, _, err := s.client.ListGroups(&gitlab.ListGroupsOptions{
 		TopLevelOnly: gitlab.Ptr(true),
 		Search:       gitlab.Ptr(groupPath),
 	})
@@ -54,7 +60,7 @@ func (s *Service) getSubGroup(subGroupPaths []string, parent *gitlab.Group) (*gi
 
 	log.Info().Msgf("Getting subgroup %v of parent group %v", subGroupPaths[0], parent.Path)
 
-	groups, _, err := s.client.Groups.ListSubGroups(parent.ID, &gitlab.ListSubGroupsOptions{
+	groups, _, err := s.client.ListSubGroups(parent.ID, &gitlab.ListSubGroupsOptions{
 		Search: gitlab.Ptr(subGroupPath),
 	})
 	if err != nil {
@@ -88,7 +94,7 @@ func (s *Service) GetProjectList(groupPath []string) (projects []*gitlab.Project
 	}
 
 	log.Info().Msgf("Fetching projects for group '%v'", group.Path)
-	projects, _, err = s.client.Groups.ListGroupProjects(group.ID,
+	projects, _, err = s.client.ListGroupProjects(group.ID,
 		&gitlab.ListGroupProjectsOptions{
 			Archived:         gitlab.Ptr(false),
 			Simple:           gitlab.Ptr(true),
@@ -109,7 +115,7 @@ func (s *Service) GetProjectList(groupPath []string) (projects []*gitlab.Project
 }
 
 func (s *Service) getVulnerabilityIssue(project *gitlab.Project) (issue *gitlab.Issue, err error) {
-	issues, _, err := s.client.Issues.ListProjectIssues(project.ID, &gitlab.ListProjectIssuesOptions{
+	issues, _, err := s.client.ListProjectIssues(project.ID, &gitlab.ListProjectIssuesOptions{
 		Search: gitlab.Ptr(VulnerabilityIssueTitle),
 		In:     gitlab.Ptr("title"),
 	})
@@ -135,10 +141,19 @@ func (s *Service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
 		return
 	}
 
-	if _, _, err = s.client.Issues.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
+	if issue.State == "closed" {
+		log.Info().Msg("Issue already closed")
+		return
+	}
+
+	if issue, _, err = s.client.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
 		StateEvent: gitlab.Ptr("close"),
 	}); err != nil {
 		return errors.Join(errors.New("failed to update issue"), err)
+	}
+
+	if issue.State != "closed" {
+		return errors.New("failed to close issue")
 	}
 
 	log.Info().Msgf("[%v] Issue closed", project.Name)
@@ -155,7 +170,7 @@ func (s *Service) OpenVulnerabilityIssue(project *gitlab.Project, report string)
 	if issue == nil {
 		log.Info().Msgf("[%v] Creating new issue", project.Name)
 
-		issue, _, err = s.client.Issues.CreateIssue(project.ID, &gitlab.CreateIssueOptions{
+		issue, _, err = s.client.CreateIssue(project.ID, &gitlab.CreateIssueOptions{
 			Title:       gitlab.Ptr(VulnerabilityIssueTitle),
 			Description: &report,
 		})
@@ -168,7 +183,7 @@ func (s *Service) OpenVulnerabilityIssue(project *gitlab.Project, report string)
 
 	log.Info().Msgf("[%v] Updating existing issue '%v'", project.Name, issue.Title)
 
-	issue, _, err = s.client.Issues.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
+	issue, _, err = s.client.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
 		Description: &report,
 		StateEvent:  gitlab.Ptr("reopen"),
 	})
