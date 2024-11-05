@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewService(t *testing.T) {
-	s := NewService(&mockGitlabService{}, &mockSlackService{}, &mockGitService{}, &mockOSVService{})
+	s := New(&mockGitlabService{}, &mockSlackService{}, &mockGitService{}, &mockOSVService{})
 
 	assert.NotNil(t, s)
 }
@@ -29,7 +29,7 @@ func TestScanNoProjects(t *testing.T) {
 	mockOSVService := &mockOSVService{}
 	mockOSVService.On("Scan", mock.Anything).Return(&osv.Report{}, nil)
 
-	svc := NewService(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
+	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
 	err := svc.Scan("group/to/scan", true, "channel", false, false)
 
@@ -52,7 +52,7 @@ func TestScanNonVulnerableProject(t *testing.T) {
 	mockOSVService := &mockOSVService{}
 	mockOSVService.On("Scan", mock.Anything).Return(&osv.Report{}, nil)
 
-	svc := NewService(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
+	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
 	err := svc.Scan("group/to/scan", true, "channel", false, false)
 
@@ -90,7 +90,7 @@ func TestScanVulnerableProject(t *testing.T) {
 	}
 	mockOSVService.On("Scan", mock.Anything).Return(report, nil)
 
-	svc := NewService(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
+	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
 	err := svc.Scan("group/to/scan", true, "channel", false, false)
 

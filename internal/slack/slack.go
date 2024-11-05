@@ -17,19 +17,13 @@ type service struct {
 	client iclient
 }
 
-func newService(c iclient) service {
-	return service{
-		client: c,
-	}
-}
-
-func NewService(token string, debug bool) (IService, error) {
+func New(token string, debug bool) (IService, error) {
 	slackClient := slack.New(token, slack.OptionDebug(debug))
 	if slackClient == nil {
 		return nil, errors.New("failed to create slack client")
 	}
 
-	s := newService(&client{client: slackClient})
+	s := service{&client{client: slackClient}}
 
 	return &s, nil
 }

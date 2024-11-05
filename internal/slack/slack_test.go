@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewService(t *testing.T) {
-	s, err := NewService("token", false)
+	s, err := New("token", false)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, s)
@@ -35,7 +35,7 @@ func TestPostMessage(t *testing.T) {
 	)
 	mockClient.On("PostMessage", channelID, mock.Anything).Return("", "", nil)
 
-	svc := newService(&mockClient)
+	svc := service{&mockClient}
 
 	err := svc.PostMessage(channelName, message)
 

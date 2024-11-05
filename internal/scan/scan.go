@@ -25,7 +25,7 @@ type service struct {
 	osvService    osv.IService
 }
 
-func NewService(gitlabService gitlab.IService, slackService slack.IService, gitService git.IService, osvService osv.IService) IService {
+func New(gitlabService gitlab.IService, slackService slack.IService, gitService git.IService, osvService osv.IService) IService {
 	return &service{
 		gitlabService: gitlabService,
 		slackService:  slackService,

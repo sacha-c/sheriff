@@ -45,7 +45,7 @@ func TestScanReturnsFullReport(t *testing.T) {
 		shell.ShellCommandRunner = originalShellCommandRunner
 	}()
 
-	svc := NewService()
+	svc := New()
 
 	report, err := svc.Scan("test-dir")
 
@@ -64,7 +64,7 @@ func TestScanWithZeroExitCodeReturnsEmptyReport(t *testing.T) {
 		shell.ShellCommandRunner = originalShellCommandRunner
 	}()
 
-	svc := NewService()
+	svc := New()
 
 	report, err := svc.Scan("test-dir")
 

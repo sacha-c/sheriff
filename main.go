@@ -57,20 +57,20 @@ func main() {
 			}
 
 			// Create services
-			gitlabService, err := gitlab.NewService(cCtx.String("gitlab-token"))
+			gitlabService, err := gitlab.New(cCtx.String("gitlab-token"))
 			if err != nil {
 				zerolog.Fatal().Err(err).Msg("Failed to create GitLab service")
 			}
 
-			slackService, err := slack.NewService(cCtx.String("slack-token"), verbose)
+			slackService, err := slack.New(cCtx.String("slack-token"), verbose)
 			if err != nil {
 				zerolog.Fatal().Err(err).Msg("Failed to create Slack service")
 			}
 
-			gitService := git.NewService()
-			osvService := osv.NewService()
+			gitService := git.New()
+			osvService := osv.New()
 
-			scanService := scan.NewService(gitlabService, slackService, gitService, osvService)
+			scanService := scan.New(gitlabService, slackService, gitService, osvService)
 
 			// Run the scan
 			if err := scanService.Scan(

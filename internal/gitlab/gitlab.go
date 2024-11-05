@@ -21,19 +21,13 @@ type service struct {
 	client iclient
 }
 
-func newService(c iclient) service {
-	return service{
-		client: c,
-	}
-}
-
-func NewService(gitlabToken string) (IService, error) {
+func New(gitlabToken string) (IService, error) {
 	gitlabClient, err := gitlab.NewClient(gitlabToken)
 	if err != nil {
 		return nil, err
 	}
 
-	s := newService(&client{client: gitlabClient})
+	s := service{&client{client: gitlabClient}}
 
 	return &s, nil
 }

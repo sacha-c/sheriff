@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewService(t *testing.T) {
-	s, err := NewService("token")
+	s, err := New("token")
 
 	assert.Nil(t, err)
 	assert.NotNil(t, s)
@@ -20,7 +20,7 @@ func TestGetProjectListWithTopLevelGroup(t *testing.T) {
 	mockClient.On("ListGroups", mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 1, Path: "group"}}, nil, nil)
 	mockClient.On("ListGroupProjects", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Project{{Name: "Hello World"}}, nil, nil)
 
-	svc := newService(&mockClient)
+	svc := service{&mockClient}
 
 	projects, err := svc.GetProjectList([]string{"group"})
 
@@ -36,7 +36,7 @@ func TestGetProjectListWithSubGroup(t *testing.T) {
 	mockClient.On("ListSubGroups", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 2, Path: "subgroup"}}, nil, nil)
 	mockClient.On("ListGroupProjects", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Project{{Name: "Hello World"}}, nil, nil)
 
-	svc := newService(&mockClient)
+	svc := service{&mockClient}
 
 	projects, err := svc.GetProjectList([]string{"group", "subgroup"})
 
@@ -51,7 +51,7 @@ func TestCloseVulnerabilityIssue(t *testing.T) {
 	mockClient.On("ListProjectIssues", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Issue{{State: "opened"}}, nil, nil)
 	mockClient.On("UpdateIssue", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&gitlab.Issue{State: "closed"}, nil, nil)
 
-	svc := newService(&mockClient)
+	svc := service{&mockClient}
 
 	err := svc.CloseVulnerabilityIssue(&gitlab.Project{})
 
@@ -63,7 +63,7 @@ func TestCloseVulnerabilityIssueAlreadyClosed(t *testing.T) {
 	mockClient := mockClient{}
 	mockClient.On("ListProjectIssues", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Issue{{State: "closed"}}, nil, nil)
 
-	svc := newService(&mockClient)
+	svc := service{&mockClient}
 
 	err := svc.CloseVulnerabilityIssue(&gitlab.Project{})
 
@@ -75,7 +75,7 @@ func TestCloseVulnerabilityIssueNoIssue(t *testing.T) {
 	mockClient := mockClient{}
 	mockClient.On("ListProjectIssues", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Issue{}, nil, nil)
 
-	svc := newService(&mockClient)
+	svc := service{&mockClient}
 
 	err := svc.CloseVulnerabilityIssue(&gitlab.Project{})
 
@@ -88,7 +88,7 @@ func TestOpenVulnerabilityIssue(t *testing.T) {
 	mockClient.On("ListProjectIssues", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Issue{}, nil, nil)
 	mockClient.On("CreateIssue", mock.Anything, mock.Anything, mock.Anything).Return(&gitlab.Issue{ID: 666}, nil, nil)
 
-	svc := newService(&mockClient)
+	svc := service{&mockClient}
 
 	i, err := svc.OpenVulnerabilityIssue(&gitlab.Project{}, "report")
 	assert.Nil(t, err)
