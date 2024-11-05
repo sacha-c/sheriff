@@ -19,7 +19,7 @@ import (
 // which is how we want to display it in the report.
 var SeverityScoreOrder = getSeverityScoreOrder(scanner.SeverityScoreThresholds)
 
-func CreateGitlabIssues(reports []*scanner.Report, s *gitlab.Service) {
+func CreateGitlabIssues(reports []*scanner.Report, s gitlab.IService) {
 	var wg sync.WaitGroup
 	for _, r := range reports {
 		wg.Add(1)
@@ -41,7 +41,7 @@ func CreateGitlabIssues(reports []*scanner.Report, s *gitlab.Service) {
 	wg.Wait()
 }
 
-func PostSlackReport(channelName string, reports []*scanner.Report, groupPath string, s *slack.Service) (err error) {
+func PostSlackReport(channelName string, reports []*scanner.Report, groupPath string, s slack.IService) (err error) {
 	formattedReport := formatSlackReports(reports, groupPath)
 
 	if err = s.PostMessage(channelName, formattedReport...); err != nil {

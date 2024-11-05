@@ -7,7 +7,17 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
-func Clone(dir string, url string) (err error) {
+type IService interface {
+	Clone(dir string, url string) error
+}
+
+type service struct{}
+
+func NewService() IService {
+	return &service{}
+}
+
+func (s *service) Clone(dir string, url string) (err error) {
 	_, err = git.PlainClone(dir, false, &git.CloneOptions{
 		URL: url,
 		Auth: &http.BasicAuth{

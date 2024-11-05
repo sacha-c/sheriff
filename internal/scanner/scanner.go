@@ -61,7 +61,7 @@ type Report struct {
 	Error           bool   // Conditionally set if an error occurred during the scan
 }
 
-func Scan(groupPath []string, svc *gitlab.Service) (reports []*Report, err error) {
+func Scan(groupPath []string, gitlabService gitlab.IService, gitService git.IService, osvService osv.IService) (reports []*Report, err error) {
 	// Create a temporary directory to store the scans
 	err = os.MkdirAll(TempScanDir, os.ModePerm)
 	if err != nil {
@@ -71,7 +71,7 @@ func Scan(groupPath []string, svc *gitlab.Service) (reports []*Report, err error
 	log.Info().Msgf("Created temporary directory %v", TempScanDir)
 
 	log.Info().Msg("Getting the list of projects to scan...")
-	projects, err := svc.GetProjectList(groupPath)
+	projects, err := gitlabService.GetProjectList(groupPath)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("could not get project list of group %v", groupPath), err)
 	}
@@ -83,7 +83,7 @@ func Scan(groupPath []string, svc *gitlab.Service) (reports []*Report, err error
 		wg.Add(1)
 		go func(reportsChan chan<- *Report) {
 			log.Info().Msgf("[%v] Scanning project", project.Name)
-			if report, err := scanProject(project); err != nil {
+			if report, err := scanProject(project, gitService, osvService); err != nil {
 				log.Err(err).Msgf("[%v] Failed to scan project, skipping", project.Name)
 				reportsChan <- &Report{Project: project, Error: true}
 			} else {
@@ -103,7 +103,7 @@ func Scan(groupPath []string, svc *gitlab.Service) (reports []*Report, err error
 	return
 }
 
-func scanProject(project *gogitlab.Project) (report *Report, err error) {
+func scanProject(project *gogitlab.Project, gitService git.IService, osvService osv.IService) (report *Report, err error) {
 	dir, err := os.MkdirTemp(TempScanDir, fmt.Sprintf("%v-", project.Name))
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to create project temporary directory"), err)
@@ -112,13 +112,13 @@ func scanProject(project *gogitlab.Project) (report *Report, err error) {
 
 	// Clone the project
 	log.Info().Msgf("[%v] Cloning project in %v", project.Name, dir)
-	if err = git.Clone(dir, project.HTTPURLToRepo); err != nil {
+	if err = gitService.Clone(dir, project.HTTPURLToRepo); err != nil {
 		return nil, errors.Join(errors.New("failed to clone project"), err)
 	}
 
 	// Scan the project
 	log.Info().Msgf("[%v] Running osv-scanner...", project.Name)
-	osvReport, err := osv.Scan(dir)
+	osvReport, err := osvService.Scan(dir)
 	if err != nil {
 		log.Warn().Msgf("[%v] Failed to run osv-scanner", project.Name)
 		return nil, errors.Join(errors.New("failed to run osv-scanner"), err)
@@ -147,7 +147,12 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 				packageRef := pie.FirstOr(pie.Filter(v.References, func(ref osv.Reference) bool { return ref.Type == osv.PackageKind }), osv.Reference{})
 				source := filepath.Base(p.Source.Path)
 				sevIdx := pie.FindFirstUsing(pkg.Groups, func(g osv.Group) bool { return pie.Contains(g.Ids, v.Id) || pie.Contains(g.Aliases, v.Id) })
-				severity := pkg.Groups[sevIdx].MaxSeverity
+				var severity string
+				if sevIdx != -1 {
+					severity = pkg.Groups[sevIdx].MaxSeverity
+				} else {
+					severity = ""
+				}
 
 				vs = append(vs, Vulnerability{
 					Id:                v.Id,

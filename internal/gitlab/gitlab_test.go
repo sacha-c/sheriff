@@ -13,7 +13,6 @@ func TestNewService(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotNil(t, s)
-	assert.NotNil(t, s.client)
 }
 
 func TestGetProjectListWithTopLevelGroup(t *testing.T) {

@@ -9,28 +9,32 @@ import (
 	"github.com/slack-go/slack"
 )
 
-type Service struct {
-	client IClient
+type IService interface {
+	PostMessage(channelName string, options ...slack.MsgOption) error
 }
 
-func newService(c IClient) Service {
-	return Service{
+type service struct {
+	client iclient
+}
+
+func newService(c iclient) service {
+	return service{
 		client: c,
 	}
 }
 
-func NewService(token string, debug bool) (*Service, error) {
+func NewService(token string, debug bool) (IService, error) {
 	slackClient := slack.New(token, slack.OptionDebug(debug))
 	if slackClient == nil {
 		return nil, errors.New("failed to create slack client")
 	}
 
-	s := newService(&Client{client: slackClient})
+	s := newService(&client{client: slackClient})
 
 	return &s, nil
 }
 
-func (s *Service) PostMessage(channelName string, options ...slack.MsgOption) (err error) {
+func (s *service) PostMessage(channelName string, options ...slack.MsgOption) (err error) {
 	channel, err := s.findSlackChannel(channelName)
 	if err != nil {
 		return
@@ -45,7 +49,7 @@ func (s *Service) PostMessage(channelName string, options ...slack.MsgOption) (e
 	return
 }
 
-func (s *Service) findSlackChannel(channelName string) (channel *slack.Channel, err error) {
+func (s *service) findSlackChannel(channelName string) (channel *slack.Channel, err error) {
 	var nextCursor string
 	var channels []slack.Channel
 

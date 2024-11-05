@@ -80,9 +80,19 @@ type Report struct {
 	Results []Result `json:"results"`
 }
 
+type IService interface {
+	Scan(dir string) (*Report, error)
+}
+
+type service struct{}
+
+func NewService() IService {
+	return &service{}
+}
+
 // Scan runs osv-scanner on the given directory
 // and returns a Report struct with the results
-func Scan(dir string) (*Report, error) {
+func (s *service) Scan(dir string) (*Report, error) {
 	var report *Report
 
 	cmdOut, err := shell.ShellCommandRunner.Run("osv-scanner", "-r", "--verbosity", "error", "--format", "json", dir)

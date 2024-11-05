@@ -5,19 +5,19 @@ package slack
 
 import "github.com/slack-go/slack"
 
-type IClient interface {
+type iclient interface {
 	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
 	GetConversations(params *slack.GetConversationsParameters) (channels []slack.Channel, nextCursor string, err error)
 }
 
-type Client struct {
+type client struct {
 	client *slack.Client
 }
 
-func (c *Client) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
+func (c *client) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
 	return c.client.PostMessage(channelID, options...)
 }
 
-func (c *Client) GetConversations(params *slack.GetConversationsParameters) (channels []slack.Channel, nextCursor string, err error) {
+func (c *client) GetConversations(params *slack.GetConversationsParameters) (channels []slack.Channel, nextCursor string, err error) {
 	return c.client.GetConversations(params)
 }

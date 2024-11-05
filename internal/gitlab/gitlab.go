@@ -11,28 +11,34 @@ import (
 
 const VulnerabilityIssueTitle = "SecurityScanner - Vulnerability report"
 
-type Service struct {
-	client IClient
+type IService interface {
+	GetProjectList(groupPath []string) ([]*gitlab.Project, error)
+	CloseVulnerabilityIssue(project *gitlab.Project) error
+	OpenVulnerabilityIssue(project *gitlab.Project, report string) (*gitlab.Issue, error)
 }
 
-func newService(c IClient) Service {
-	return Service{
+type service struct {
+	client iclient
+}
+
+func newService(c iclient) service {
+	return service{
 		client: c,
 	}
 }
 
-func NewService(gitlabToken string) (*Service, error) {
+func NewService(gitlabToken string) (IService, error) {
 	gitlabClient, err := gitlab.NewClient(gitlabToken)
 	if err != nil {
 		return nil, err
 	}
 
-	s := newService(&Client{client: gitlabClient})
+	s := newService(&client{client: gitlabClient})
 
 	return &s, nil
 }
 
-func (s *Service) getTopLevelGroup(groupPath string) (*gitlab.Group, error) {
+func (s *service) getTopLevelGroup(groupPath string) (*gitlab.Group, error) {
 	log.Info().Msgf("Getting top-level group %v", groupPath)
 	groups, _, err := s.client.ListGroups(&gitlab.ListGroupsOptions{
 		TopLevelOnly: gitlab.Ptr(true),
@@ -52,7 +58,7 @@ func (s *Service) getTopLevelGroup(groupPath string) (*gitlab.Group, error) {
 }
 
 // Function to get subgroups recursively
-func (s *Service) getSubGroup(subGroupPaths []string, parent *gitlab.Group) (*gitlab.Group, error) {
+func (s *service) getSubGroup(subGroupPaths []string, parent *gitlab.Group) (*gitlab.Group, error) {
 	if len(subGroupPaths) == 0 {
 		return parent, nil
 	}
@@ -82,7 +88,7 @@ func (s *Service) getSubGroup(subGroupPaths []string, parent *gitlab.Group) (*gi
 	return s.getSubGroup(subGroupPaths[1:], group)
 }
 
-func (s *Service) GetProjectList(groupPath []string) (projects []*gitlab.Project, err error) {
+func (s *service) GetProjectList(groupPath []string) (projects []*gitlab.Project, err error) {
 	topGroup, err := s.getTopLevelGroup(groupPath[0])
 	if err != nil {
 		return nil, err
@@ -114,7 +120,7 @@ func (s *Service) GetProjectList(groupPath []string) (projects []*gitlab.Project
 	return
 }
 
-func (s *Service) getVulnerabilityIssue(project *gitlab.Project) (issue *gitlab.Issue, err error) {
+func (s *service) getVulnerabilityIssue(project *gitlab.Project) (issue *gitlab.Issue, err error) {
 	issues, _, err := s.client.ListProjectIssues(project.ID, &gitlab.ListProjectIssuesOptions{
 		Search: gitlab.Ptr(VulnerabilityIssueTitle),
 		In:     gitlab.Ptr("title"),
@@ -130,7 +136,7 @@ func (s *Service) getVulnerabilityIssue(project *gitlab.Project) (issue *gitlab.
 	return
 }
 
-func (s *Service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
+func (s *service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
 	issue, err := s.getVulnerabilityIssue(project)
 	if err != nil {
 		return errors.Join(errors.New("failed to fetch current list of issues"), err)
@@ -161,7 +167,7 @@ func (s *Service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
 	return
 }
 
-func (s *Service) OpenVulnerabilityIssue(project *gitlab.Project, report string) (issue *gitlab.Issue, err error) {
+func (s *service) OpenVulnerabilityIssue(project *gitlab.Project, report string) (issue *gitlab.Issue, err error) {
 	issue, err = s.getVulnerabilityIssue(project)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("[%v] Failed to fetch current list of issues", project.Name), err)

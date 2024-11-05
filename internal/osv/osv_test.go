@@ -64,7 +64,9 @@ func TestScanReturnsFullReport(t *testing.T) {
 		shell.ShellCommandRunner = originalShellCommandRunner
 	}()
 
-	report, err := Scan("test-dir")
+	svc := NewService()
+
+	report, err := svc.Scan("test-dir")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +85,9 @@ func TestScanWithZeroExitCodeReturnsEmptyReport(t *testing.T) {
 		shell.ShellCommandRunner = originalShellCommandRunner
 	}()
 
-	report, err := Scan("test-dir")
+	svc := NewService()
+
+	report, err := svc.Scan("test-dir")
 	if err != nil {
 		t.Fatalf("Wanted no error, got %v", err)
 	}
