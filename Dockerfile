@@ -1,6 +1,7 @@
 ARG GO_VERSION=1.23.2
 ARG ALPINE_VERSION=3.20.3
 ARG OSV_SCANNER_VERSION=1.9.0
+ARG BUSYBOX_VERSION=1.37.0
 
 FROM golang:${GO_VERSION}-alpine AS builder
 
@@ -16,10 +17,9 @@ RUN go build -o build/
 
 FROM ghcr.io/google/osv-scanner:v${OSV_SCANNER_VERSION} AS osv-scanner
 
-FROM scratch AS final
+FROM busybox:${BUSYBOX_VERSION}-uclibc as final
 
 WORKDIR /app
 
 COPY --from=osv-scanner /osv-scanner /usr/local/bin/osv-scanner
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app/build/sheriff /usr/local/bin/sheriff
