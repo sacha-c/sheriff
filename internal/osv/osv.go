@@ -2,7 +2,7 @@ package osv
 
 import (
 	"encoding/json"
-	"securityscanner/internal/shell"
+	"sheriff/internal/shell"
 
 	"github.com/rs/zerolog/log"
 )

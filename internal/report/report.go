@@ -2,9 +2,9 @@ package report
 
 import (
 	"fmt"
-	"securityscanner/internal/gitlab"
-	"securityscanner/internal/scanner"
-	"securityscanner/internal/slack"
+	"sheriff/internal/gitlab"
+	"sheriff/internal/scanner"
+	"sheriff/internal/slack"
 	"sort"
 	"strconv"
 	"sync"

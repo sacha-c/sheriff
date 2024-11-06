@@ -1,7 +1,7 @@
 package scan
 
 import (
-	"securityscanner/internal/osv"
+	"sheriff/internal/osv"
 	"testing"
 
 	"github.com/slack-go/slack"

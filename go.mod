@@ -1,4 +1,4 @@
-module securityscanner
+module sheriff
 
 go 1.23.2
 

@@ -1,7 +1,7 @@
 package osv
 
 import (
-	"securityscanner/internal/shell"
+	"sheriff/internal/shell"
 	"testing"
 
 	"io"

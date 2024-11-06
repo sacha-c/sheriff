@@ -1,7 +1,7 @@
 package report
 
 import (
-	"securityscanner/internal/scanner"
+	"sheriff/internal/scanner"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

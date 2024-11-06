@@ -1,7 +1,7 @@
 package scanner
 
 import (
-	"securityscanner/internal/osv"
+	"sheriff/internal/osv"
 	"testing"
 )
 

@@ -3,12 +3,12 @@ package scan
 import (
 	"errors"
 	"fmt"
-	"securityscanner/internal/git"
-	"securityscanner/internal/gitlab"
-	"securityscanner/internal/osv"
-	"securityscanner/internal/report"
-	"securityscanner/internal/scanner"
-	"securityscanner/internal/slack"
+	"sheriff/internal/git"
+	"sheriff/internal/gitlab"
+	"sheriff/internal/osv"
+	"sheriff/internal/report"
+	"sheriff/internal/scanner"
+	"sheriff/internal/slack"
 	"strings"
 
 	"github.com/rs/zerolog/log"

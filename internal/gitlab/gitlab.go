@@ -9,7 +9,7 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-const VulnerabilityIssueTitle = "SecurityScanner - Vulnerability report"
+const VulnerabilityIssueTitle = "sheriff - Vulnerability report"
 
 type IService interface {
 	GetProjectList(groupPath []string) ([]*gitlab.Project, error)

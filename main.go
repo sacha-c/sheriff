@@ -3,12 +3,12 @@ package main
 import (
 	"errors"
 	"os"
-	"securityscanner/internal/git"
-	"securityscanner/internal/gitlab"
-	"securityscanner/internal/log"
-	"securityscanner/internal/osv"
-	"securityscanner/internal/scan"
-	"securityscanner/internal/slack"
+	"sheriff/internal/git"
+	"sheriff/internal/gitlab"
+	"sheriff/internal/log"
+	"sheriff/internal/osv"
+	"sheriff/internal/scan"
+	"sheriff/internal/slack"
 
 	zerolog "github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -24,8 +24,8 @@ const (
 
 func main() {
 	app := &cli.App{
-		Name:    "securityscanner",
-		Usage:   "fight dangerous dependencies!",
+		Name:    "sheriff",
+		Usage:   "Fighting dangerous dangerous dependencies since 2024.",
 		Version: "v0.10.2",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{

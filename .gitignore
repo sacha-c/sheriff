@@ -25,5 +25,5 @@ go.work.sum
 # env file
 .env
 
-# Folder in which security_scanner will temporarily store projects
+# Folder in which sheriff will temporarily store projects
 tmp_scans/

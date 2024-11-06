@@ -22,4 +22,4 @@ WORKDIR /app
 
 COPY --from=osv-scanner /osv-scanner /usr/local/bin/osv-scanner
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /app/build/securityscanner /usr/local/bin/securityscanner
+COPY --from=builder /app/build/sheriff /usr/local/bin/sheriff

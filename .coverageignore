@@ -1,3 +1,3 @@
-securityscanner/internal/gitlab/client.go
-securityscanner/internal/slack/client.go
-securityscanner/internal/git/client.go
+sheriff/internal/gitlab/client.go
+sheriff/internal/slack/client.go
+sheriff/internal/git/client.go

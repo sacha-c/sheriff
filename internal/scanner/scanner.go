@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"securityscanner/internal/git"
-	"securityscanner/internal/gitlab"
-	"securityscanner/internal/osv"
+	"sheriff/internal/git"
+	"sheriff/internal/gitlab"
+	"sheriff/internal/osv"
 	"strconv"
 	"sync"
 
