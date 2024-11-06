@@ -13,8 +13,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// SecurityPatroller is the interface of the main security scanner service of this tool.
-type SecurityPatroller interface {
+// securityPatroller is the interface of the main security scanner service of this tool.
+type securityPatroller interface {
 	// Scans a given GitLab group path, creates and publishes the necessary reports
 	Patrol(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error
 }
@@ -28,7 +28,7 @@ type sheriffService struct {
 	osvService    scanner.VulnScanner[scanner.OsvReport]
 }
 
-func New(gitlabService gitlab.IService, slackService slack.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) SecurityPatroller {
+func New(gitlabService gitlab.IService, slackService slack.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) securityPatroller {
 	return &sheriffService{
 		gitlabService: gitlabService,
 		slackService:  slackService,
@@ -50,13 +50,13 @@ func (s *sheriffService) Patrol(targetGroupPath string, gitlabIssue bool, slackC
 
 	if gitlabIssue {
 		log.Info().Msg("Creating issue in affected projects")
-		report.CreateGitlabIssues(scanReports, s.gitlabService)
+		report.PublishAsGitlabIssues(scanReports, s.gitlabService)
 	}
 
 	if s.slackService != nil && slackChannel != "" {
 		log.Info().Msgf("Posting report to slack channel %v", slackChannel)
 
-		if err := report.PostSlackReport(slackChannel, scanReports, targetGroupPath, s.slackService); err != nil {
+		if err := report.PublishAsSlackMessage(slackChannel, scanReports, targetGroupPath, s.slackService); err != nil {
 			log.Err(err).Msg("Failed to post slack report")
 		}
 	}

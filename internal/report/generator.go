@@ -29,14 +29,14 @@ const (
 // These thresholds are inferred from CSVSS reports we've seen in the wild.
 // The value represents the lower bound (inclusive) of the severity score kind.
 // They may need to be adjusted as we observe more vulnerabilities.
-var SeverityScoreThresholds = map[SeverityScoreKind]float64{
+var severityScoreThresholds = map[SeverityScoreKind]float64{
 	Critical: 9.0,
 	High:     8.0,
 	Moderate: 3.0,
 	Low:      0.0,
 }
 
-const TempScanDir = "tmp_scans"
+const tempScanDir = "tmp_scans"
 
 // Representation of what a vulnerability is within our scanner
 type Vulnerability struct {
@@ -53,7 +53,7 @@ type Vulnerability struct {
 	FixAvailable      bool
 }
 
-// Main report representation of a project vulnerability scan.
+// Report is the main report representation of a project vulnerability scan.
 type Report struct {
 	Project         *gogitlab.Project
 	IsVulnerable    bool
@@ -65,12 +65,12 @@ type Report struct {
 // GenerateVulnReport scans all projects in a GitLab group and returns a list of reports.
 func GenerateVulnReport(groupPath []string, gitlabService gitlab.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) (reports []*Report, err error) {
 	// Create a temporary directory to store the scans
-	err = os.MkdirAll(TempScanDir, os.ModePerm)
+	err = os.MkdirAll(tempScanDir, os.ModePerm)
 	if err != nil {
 		return nil, errors.New("could not create temporary directory")
 	}
-	defer os.RemoveAll(TempScanDir)
-	log.Info().Msgf("Created temporary directory %v", TempScanDir)
+	defer os.RemoveAll(tempScanDir)
+	log.Info().Msgf("Created temporary directory %v", tempScanDir)
 
 	log.Info().Msg("Getting the list of projects to scan...")
 	projects, err := gitlabService.GetProjectList(groupPath)
@@ -107,7 +107,7 @@ func GenerateVulnReport(groupPath []string, gitlabService gitlab.IService, gitSe
 
 // scanProject scans a project for vulnerabilities using the osv scanner.
 func scanProject(project *gogitlab.Project, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) (report *Report, err error) {
-	dir, err := os.MkdirTemp(TempScanDir, fmt.Sprintf("%v-", project.Name))
+	dir, err := os.MkdirTemp(tempScanDir, fmt.Sprintf("%v-", project.Name))
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to create project temporary directory"), err)
 	}
@@ -134,7 +134,7 @@ func scanProject(project *gogitlab.Project, gitService git.IService, osvService 
 	return report, nil
 }
 
-// Maps the report from osv-scanner to our internal representation of vulnerability reports.
+// reportFromOSV maps the report from osv-scanner to our internal representation of vulnerability reports.
 func reportFromOSV(r *scanner.OsvReport, p *gogitlab.Project) *Report {
 	if r == nil {
 		return &Report{
@@ -194,8 +194,8 @@ func getSeverityScoreKind(severity string) SeverityScoreKind {
 	}
 
 	maxKind := Unknown
-	for k, v := range SeverityScoreThresholds {
-		if floatSeverity >= v && v >= SeverityScoreThresholds[maxKind] {
+	for k, v := range severityScoreThresholds {
+		if floatSeverity >= v && v >= severityScoreThresholds[maxKind] {
 			maxKind = k
 		}
 	}

@@ -14,11 +14,11 @@ import (
 	goslack "github.com/slack-go/slack"
 )
 
-// SeverityScoreOrder represents the order of SeverityScoreKind by their score in descending order
+// severityScoreOrder represents the order of SeverityScoreKind by their score in descending order
 // which is how we want to display it in the
-var SeverityScoreOrder = getSeverityScoreOrder(SeverityScoreThresholds)
+var severityScoreOrder = getSeverityScoreOrder(severityScoreThresholds)
 
-func CreateGitlabIssues(reports []*Report, s gitlab.IService) {
+func PublishAsGitlabIssues(reports []*Report, s gitlab.IService) {
 	var wg sync.WaitGroup
 	for _, r := range reports {
 		wg.Add(1)
@@ -40,7 +40,7 @@ func CreateGitlabIssues(reports []*Report, s gitlab.IService) {
 	wg.Wait()
 }
 
-func PostSlackReport(channelName string, reports []*Report, groupPath string, s slack.IService) (err error) {
+func PublishAsSlackMessage(channelName string, reports []*Report, groupPath string, s slack.IService) (err error) {
 	formattedReport := formatSlackReports(reports, groupPath)
 
 	if err = s.PostMessage(channelName, formattedReport...); err != nil {
@@ -83,7 +83,7 @@ func formatGitlabIssue(r *Report) (mdReport string) {
 	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v Vulnerability) string { return string(v.SeverityScoreKind) })
 
 	mdReport = ""
-	for _, groupName := range SeverityScoreOrder {
+	for _, groupName := range severityScoreOrder {
 		if group, ok := groupedVulnerabilities[string(groupName)]; ok {
 			sortedVulnsInGroup := pie.SortUsing(group, func(a, b Vulnerability) bool {
 				return severityBiggerThan(a.Severity, b.Severity)
