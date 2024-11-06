@@ -26,7 +26,7 @@ func main() {
 	app := &cli.App{
 		Name:    "sheriff",
 		Usage:   "Fighting dangerous dangerous dependencies since 2024.",
-		Version: "0.12.1",
+		Version: "0.12.4",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:        "verbose",
