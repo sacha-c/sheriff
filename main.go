@@ -7,7 +7,7 @@ import (
 	"sheriff/internal/gitlab"
 	"sheriff/internal/log"
 	"sheriff/internal/osv"
-	"sheriff/internal/scan"
+	"sheriff/internal/patrol"
 	"sheriff/internal/slack"
 
 	zerolog "github.com/rs/zerolog/log"
@@ -37,8 +37,8 @@ func main() {
 		},
 		Commands: []*cli.Command{
 			{
-				Name:  "scan",
-				Usage: "Scan a GitLab group for vulnerabilities",
+				Name:  "patrol",
+				Usage: "Tell sheriff to patrol a GitLab group looking for vulnerabilities",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "report-slack-channel",
@@ -95,10 +95,10 @@ func main() {
 					gitService := git.New(cCtx.String("gitlab-token"))
 					osvService := osv.New()
 
-					scanService := scan.New(gitlabService, slackService, gitService, osvService)
+					patrolService := patrol.New(gitlabService, slackService, gitService, osvService)
 
 					// Run the scan
-					if err := scanService.Scan(
+					if err := patrolService.Patrol(
 						targetGroupPath,
 						cCtx.Bool("report-gitlab"),
 						cCtx.String("report-slack-channel"),

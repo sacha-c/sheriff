@@ -1,4 +1,4 @@
-package scan
+package patrol
 
 import (
 	"errors"
@@ -15,7 +15,7 @@ import (
 )
 
 type IService interface {
-	Scan(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error
+	Patrol(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error
 }
 
 type service struct {
@@ -34,7 +34,7 @@ func New(gitlabService gitlab.IService, slackService slack.IService, gitService 
 	}
 }
 
-func (s *service) Scan(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error {
+func (s *service) Patrol(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error {
 	groupPath, err := parseGroupPaths(targetGroupPath)
 	if err != nil {
 		return errors.Join(errors.New("failed to parse gitlab group path"), err)

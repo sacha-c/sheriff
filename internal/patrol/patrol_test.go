@@ -1,4 +1,4 @@
-package scan
+package patrol
 
 import (
 	"sheriff/internal/osv"
@@ -31,7 +31,7 @@ func TestScanNoProjects(t *testing.T) {
 
 	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
-	err := svc.Scan("group/to/scan", true, "channel", false, false)
+	err := svc.Patrol("group/to/scan", true, "channel", false, false)
 
 	assert.Nil(t, err)
 	mockGitlabService.AssertExpectations(t)
@@ -54,7 +54,7 @@ func TestScanNonVulnerableProject(t *testing.T) {
 
 	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
-	err := svc.Scan("group/to/scan", true, "channel", false, false)
+	err := svc.Patrol("group/to/scan", true, "channel", false, false)
 
 	assert.Nil(t, err)
 	mockGitlabService.AssertExpectations(t)
@@ -92,7 +92,7 @@ func TestScanVulnerableProject(t *testing.T) {
 
 	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
-	err := svc.Scan("group/to/scan", true, "channel", false, false)
+	err := svc.Patrol("group/to/scan", true, "channel", false, false)
 
 	assert.Nil(t, err)
 	mockGitlabService.AssertExpectations(t)
