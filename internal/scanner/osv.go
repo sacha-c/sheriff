@@ -1,4 +1,4 @@
-package osv
+package scanner
 
 import (
 	"encoding/json"
@@ -76,24 +76,21 @@ type Result struct {
 	Packages []Package `json:"packages"`
 }
 
-type Report struct {
+// Vulnerability report as returned by osv-scanner
+type OsvReport struct {
 	Results []Result `json:"results"`
 }
 
-type IService interface {
-	Scan(dir string) (*Report, error)
+// osvScanner is a concrete implementation of the VulnScanner interface
+// that uses Google's osv-scanner to scan for vulnerabilities in a project directory.
+type osvScanner struct{}
+
+func NewOsvScanner() VulnScanner[OsvReport] {
+	return &osvScanner{}
 }
 
-type service struct{}
-
-func New() IService {
-	return &service{}
-}
-
-// Scan runs osv-scanner on the given directory
-// and returns a Report struct with the results
-func (s *service) Scan(dir string) (*Report, error) {
-	var report *Report
+func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
+	var report *OsvReport
 
 	cmdOut, err := shell.ShellCommandRunner.Run("osv-scanner", "-r", "--verbosity", "error", "--format", "json", dir)
 
@@ -119,7 +116,7 @@ func (s *service) Scan(dir string) (*Report, error) {
 
 // readOSVJson reads the JSON output from osv-scanner
 // and returns a Report struct with the results
-func readOSVJson(data []byte) (report *Report, err error) {
+func readOSVJson(data []byte) (report *OsvReport, err error) {
 	err = json.Unmarshal(data, &report)
 	return
 }

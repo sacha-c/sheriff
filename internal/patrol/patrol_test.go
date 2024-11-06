@@ -1,7 +1,7 @@
 package patrol
 
 import (
-	"sheriff/internal/osv"
+	"sheriff/internal/scanner"
 	"testing"
 
 	"github.com/slack-go/slack"
@@ -27,7 +27,7 @@ func TestScanNoProjects(t *testing.T) {
 	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
 
 	mockOSVService := &mockOSVService{}
-	mockOSVService.On("Scan", mock.Anything).Return(&osv.Report{}, nil)
+	mockOSVService.On("Scan", mock.Anything).Return(&scanner.OsvReport{}, nil)
 
 	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
@@ -50,7 +50,7 @@ func TestScanNonVulnerableProject(t *testing.T) {
 	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
 
 	mockOSVService := &mockOSVService{}
-	mockOSVService.On("Scan", mock.Anything).Return(&osv.Report{}, nil)
+	mockOSVService.On("Scan", mock.Anything).Return(&scanner.OsvReport{}, nil)
 
 	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
@@ -73,12 +73,12 @@ func TestScanVulnerableProject(t *testing.T) {
 	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
 
 	mockOSVService := &mockOSVService{}
-	report := &osv.Report{
-		Results: []osv.Result{
+	report := &scanner.OsvReport{
+		Results: []scanner.Result{
 			{
-				Packages: []osv.Package{
+				Packages: []scanner.Package{
 					{
-						Vulnerabilities: []osv.Vulnerability{
+						Vulnerabilities: []scanner.Vulnerability{
 							{
 								Id: "CVE-2021-1234",
 							},
@@ -140,7 +140,7 @@ type mockOSVService struct {
 	mock.Mock
 }
 
-func (c *mockOSVService) Scan(dir string) (*osv.Report, error) {
+func (c *mockOSVService) Scan(dir string) (*scanner.OsvReport, error) {
 	args := c.Called(dir)
-	return args.Get(0).(*osv.Report), args.Error(1)
+	return args.Get(0).(*scanner.OsvReport), args.Error(1)
 }

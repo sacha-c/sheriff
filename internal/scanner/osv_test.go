@@ -1,4 +1,4 @@
-package osv
+package scanner
 
 import (
 	"sheriff/internal/shell"
@@ -16,7 +16,7 @@ func TestReadOSVJson(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var got *Report
+	var got *OsvReport
 	got, err = readOSVJson(byteValue)
 
 	assert.Nil(t, err)
@@ -45,7 +45,7 @@ func TestScanReturnsFullReport(t *testing.T) {
 		shell.ShellCommandRunner = originalShellCommandRunner
 	}()
 
-	svc := New()
+	svc := NewOsvScanner()
 
 	report, err := svc.Scan("test-dir")
 
@@ -64,7 +64,7 @@ func TestScanWithZeroExitCodeReturnsEmptyReport(t *testing.T) {
 		shell.ShellCommandRunner = originalShellCommandRunner
 	}()
 
-	svc := New()
+	svc := NewOsvScanner()
 
 	report, err := svc.Scan("test-dir")
 

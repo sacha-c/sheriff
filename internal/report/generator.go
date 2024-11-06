@@ -1,4 +1,4 @@
-package scanner
+package report
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sheriff/internal/git"
 	"sheriff/internal/gitlab"
-	"sheriff/internal/osv"
+	"sheriff/internal/scanner"
 	"strconv"
 	"sync"
 
@@ -53,6 +53,7 @@ type Vulnerability struct {
 	FixAvailable      bool
 }
 
+// Main report representation of a project vulnerability scan.
 type Report struct {
 	Project         *gogitlab.Project
 	IsVulnerable    bool
@@ -61,7 +62,8 @@ type Report struct {
 	Error           bool   // Conditionally set if an error occurred during the scan
 }
 
-func Scan(groupPath []string, gitlabService gitlab.IService, gitService git.IService, osvService osv.IService) (reports []*Report, err error) {
+// GenerateVulnReport scans all projects in a GitLab group and returns a list of reports.
+func GenerateVulnReport(groupPath []string, gitlabService gitlab.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) (reports []*Report, err error) {
 	// Create a temporary directory to store the scans
 	err = os.MkdirAll(TempScanDir, os.ModePerm)
 	if err != nil {
@@ -103,7 +105,8 @@ func Scan(groupPath []string, gitlabService gitlab.IService, gitService git.ISer
 	return
 }
 
-func scanProject(project *gogitlab.Project, gitService git.IService, osvService osv.IService) (report *Report, err error) {
+// scanProject scans a project for vulnerabilities using the osv scanner.
+func scanProject(project *gogitlab.Project, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) (report *Report, err error) {
 	dir, err := os.MkdirTemp(TempScanDir, fmt.Sprintf("%v-", project.Name))
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to create project temporary directory"), err)
@@ -131,7 +134,8 @@ func scanProject(project *gogitlab.Project, gitService git.IService, osvService 
 	return report, nil
 }
 
-func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
+// Maps the report from osv-scanner to our internal representation of vulnerability reports.
+func reportFromOSV(r *scanner.OsvReport, p *gogitlab.Project) *Report {
 	if r == nil {
 		return &Report{
 			Project:         p,
@@ -144,9 +148,9 @@ func reportFromOSV(r *osv.Report, p *gogitlab.Project) *Report {
 	for _, p := range r.Results {
 		for _, pkg := range p.Packages {
 			for _, v := range pkg.Vulnerabilities {
-				packageRef := pie.FirstOr(pie.Filter(v.References, func(ref osv.Reference) bool { return ref.Type == osv.PackageKind }), osv.Reference{})
+				packageRef := pie.FirstOr(pie.Filter(v.References, func(ref scanner.Reference) bool { return ref.Type == scanner.PackageKind }), scanner.Reference{})
 				source := filepath.Base(p.Source.Path)
-				sevIdx := pie.FindFirstUsing(pkg.Groups, func(g osv.Group) bool { return pie.Contains(g.Ids, v.Id) || pie.Contains(g.Aliases, v.Id) })
+				sevIdx := pie.FindFirstUsing(pkg.Groups, func(g scanner.Group) bool { return pie.Contains(g.Ids, v.Id) || pie.Contains(g.Aliases, v.Id) })
 				var severity string
 				if sevIdx != -1 {
 					severity = pkg.Groups[sevIdx].MaxSeverity
@@ -198,7 +202,7 @@ func getSeverityScoreKind(severity string) SeverityScoreKind {
 	return maxKind
 }
 
-func hasFixAvailable(v osv.Vulnerability) bool {
+func hasFixAvailable(v scanner.Vulnerability) bool {
 	// If there is any version with a fixed event, then the vulnerability has at least one version
 	// that is not vulnerable
 	for _, a := range v.Affected {

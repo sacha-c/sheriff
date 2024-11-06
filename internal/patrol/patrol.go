@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sheriff/internal/git"
 	"sheriff/internal/gitlab"
-	"sheriff/internal/osv"
 	"sheriff/internal/report"
 	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
@@ -14,19 +13,23 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type IService interface {
+// SecurityPatroller is the interface of the main security scanner service of this tool.
+type SecurityPatroller interface {
+	// Scans a given GitLab group path, creates and publishes the necessary reports
 	Patrol(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error
 }
 
-type service struct {
+// sheriffService is the implementation of the SecurityPatroller interface.
+// It contains the main "loop" logic of this tool.
+type sheriffService struct {
 	gitlabService gitlab.IService
 	slackService  slack.IService
 	gitService    git.IService
-	osvService    osv.IService
+	osvService    scanner.VulnScanner[scanner.OsvReport]
 }
 
-func New(gitlabService gitlab.IService, slackService slack.IService, gitService git.IService, osvService osv.IService) IService {
-	return &service{
+func New(gitlabService gitlab.IService, slackService slack.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) SecurityPatroller {
+	return &sheriffService{
 		gitlabService: gitlabService,
 		slackService:  slackService,
 		gitService:    gitService,
@@ -34,13 +37,13 @@ func New(gitlabService gitlab.IService, slackService slack.IService, gitService 
 	}
 }
 
-func (s *service) Patrol(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error {
+func (s *sheriffService) Patrol(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error {
 	groupPath, err := parseGroupPaths(targetGroupPath)
 	if err != nil {
 		return errors.Join(errors.New("failed to parse gitlab group path"), err)
 	}
 
-	scanReports, err := scanner.Scan(groupPath, s.gitlabService, s.gitService, s.osvService)
+	scanReports, err := report.GenerateVulnReport(groupPath, s.gitlabService, s.gitService, s.osvService)
 	if err != nil {
 		return errors.Join(errors.New("failed to scan projects"), err)
 	}

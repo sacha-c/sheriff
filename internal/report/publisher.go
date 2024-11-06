@@ -3,7 +3,6 @@ package report
 import (
 	"fmt"
 	"sheriff/internal/gitlab"
-	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
 	"sort"
 	"strconv"
@@ -16,10 +15,10 @@ import (
 )
 
 // SeverityScoreOrder represents the order of SeverityScoreKind by their score in descending order
-// which is how we want to display it in the report.
-var SeverityScoreOrder = getSeverityScoreOrder(scanner.SeverityScoreThresholds)
+// which is how we want to display it in the
+var SeverityScoreOrder = getSeverityScoreOrder(SeverityScoreThresholds)
 
-func CreateGitlabIssues(reports []*scanner.Report, s gitlab.IService) {
+func CreateGitlabIssues(reports []*Report, s gitlab.IService) {
 	var wg sync.WaitGroup
 	for _, r := range reports {
 		wg.Add(1)
@@ -41,7 +40,7 @@ func CreateGitlabIssues(reports []*scanner.Report, s gitlab.IService) {
 	wg.Wait()
 }
 
-func PostSlackReport(channelName string, reports []*scanner.Report, groupPath string, s slack.IService) (err error) {
+func PostSlackReport(channelName string, reports []*Report, groupPath string, s slack.IService) (err error) {
 	formattedReport := formatSlackReports(reports, groupPath)
 
 	if err = s.PostMessage(channelName, formattedReport...); err != nil {
@@ -51,7 +50,7 @@ func PostSlackReport(channelName string, reports []*scanner.Report, groupPath st
 	return
 }
 
-func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (md string) {
+func formatGitlabIssueTable(groupName string, vs *[]Vulnerability) (md string) {
 	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
 	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
 	for _, vuln := range *vs {
@@ -80,13 +79,13 @@ func severityBiggerThan(a string, b string) bool {
 	return aFloat > bFloat
 }
 
-func formatGitlabIssue(r *scanner.Report) (mdReport string) {
-	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v scanner.Vulnerability) string { return string(v.SeverityScoreKind) })
+func formatGitlabIssue(r *Report) (mdReport string) {
+	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v Vulnerability) string { return string(v.SeverityScoreKind) })
 
 	mdReport = ""
 	for _, groupName := range SeverityScoreOrder {
 		if group, ok := groupedVulnerabilities[string(groupName)]; ok {
-			sortedVulnsInGroup := pie.SortUsing(group, func(a, b scanner.Vulnerability) bool {
+			sortedVulnsInGroup := pie.SortUsing(group, func(a, b Vulnerability) bool {
 				return severityBiggerThan(a.Severity, b.Severity)
 			})
 			mdReport += formatGitlabIssueTable(string(groupName), &sortedVulnsInGroup)
@@ -95,7 +94,7 @@ func formatGitlabIssue(r *scanner.Report) (mdReport string) {
 
 	return
 }
-func formatSlackReports(reports []*scanner.Report, groupPath string) []goslack.MsgOption {
+func formatSlackReports(reports []*Report, groupPath string) []goslack.MsgOption {
 	title := goslack.NewHeaderBlock(
 		goslack.NewTextBlockObject(
 			"plain_text",
@@ -105,11 +104,11 @@ func formatSlackReports(reports []*scanner.Report, groupPath string) []goslack.M
 	)
 	subtitle := goslack.NewContextBlock("subtitle", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Group scanned: %v", groupPath), false, false))
 
-	reports = pie.SortUsing(reports, func(a, b *scanner.Report) bool { return len(a.Vulnerabilities) > len(b.Vulnerabilities) })
+	reports = pie.SortUsing(reports, func(a, b *Report) bool { return len(a.Vulnerabilities) > len(b.Vulnerabilities) })
 
-	vulnerableReports := pie.Filter(reports, func(r *scanner.Report) bool { return !r.Error && r.IsVulnerable })
-	nonVulnerableReports := pie.Filter(reports, func(r *scanner.Report) bool { return !r.Error && !r.IsVulnerable })
-	errorReports := pie.Filter(reports, func(r *scanner.Report) bool { return r.Error })
+	vulnerableReports := pie.Filter(reports, func(r *Report) bool { return !r.Error && r.IsVulnerable })
+	nonVulnerableReports := pie.Filter(reports, func(r *Report) bool { return !r.Error && !r.IsVulnerable })
+	errorReports := pie.Filter(reports, func(r *Report) bool { return r.Error })
 
 	vulnerableSections := pie.Flat(pie.Map(vulnerableReports, formatVulnerableReport))
 	nonVulnerableSections := pie.Flat(pie.Map(nonVulnerableReports, formatSimpleReport))
@@ -179,7 +178,7 @@ func formatSlackReports(reports []*scanner.Report, groupPath string) []goslack.M
 	return options
 }
 
-func formatVulnerableReport(r *scanner.Report) []goslack.Block {
+func formatVulnerableReport(r *Report) []goslack.Block {
 	projectName := fmt.Sprintf("<%s|*%s*>", r.Project.WebURL, r.Project.Name)
 	var reportUrl string
 	if r.IssueUrl != "" {
@@ -203,7 +202,7 @@ func formatVulnerableReport(r *scanner.Report) []goslack.Block {
 	}
 }
 
-func formatSimpleReport(r *scanner.Report) []goslack.Block {
+func formatSimpleReport(r *Report) []goslack.Block {
 	return []goslack.Block{
 		goslack.NewSectionBlock(
 			nil,
@@ -216,8 +215,8 @@ func formatSimpleReport(r *scanner.Report) []goslack.Block {
 }
 
 // getSeverityScoreOrder returns a slice of SeverityScoreKind sorted by their score in descending order
-func getSeverityScoreOrder(thresholds map[scanner.SeverityScoreKind]float64) []scanner.SeverityScoreKind {
-	kinds := make([]scanner.SeverityScoreKind, 0, len(thresholds))
+func getSeverityScoreOrder(thresholds map[SeverityScoreKind]float64) []SeverityScoreKind {
+	kinds := make([]SeverityScoreKind, 0, len(thresholds))
 	for kind := range thresholds {
 		kinds = append(kinds, kind)
 	}

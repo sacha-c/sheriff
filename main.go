@@ -6,8 +6,8 @@ import (
 	"sheriff/internal/git"
 	"sheriff/internal/gitlab"
 	"sheriff/internal/log"
-	"sheriff/internal/osv"
 	"sheriff/internal/patrol"
+	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
 
 	zerolog "github.com/rs/zerolog/log"
@@ -26,7 +26,7 @@ func main() {
 	app := &cli.App{
 		Name:    "sheriff",
 		Usage:   "Fighting dangerous dangerous dependencies since 2024.",
-		Version: "0.12.4",
+		Version: "0.12.5",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:        "verbose",
@@ -93,7 +93,7 @@ func main() {
 					}
 
 					gitService := git.New(cCtx.String("gitlab-token"))
-					osvService := osv.New()
+					osvService := scanner.NewOsvScanner()
 
 					patrolService := patrol.New(gitlabService, slackService, gitService, osvService)
 

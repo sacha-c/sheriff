@@ -1,7 +1,7 @@
-package scanner
+package report
 
 import (
-	"sheriff/internal/osv"
+	"sheriff/internal/scanner"
 	"testing"
 )
 
@@ -63,10 +63,10 @@ func TestReportFromOSVHasCorrectSeverityKind(t *testing.T) {
 }
 
 func TestReportContainsHasAvailableFix(t *testing.T) {
-	mockReport := createMockReport("10.0", osv.Affected{
-		Ranges: []osv.Range{
+	mockReport := createMockReport("10.0", scanner.Affected{
+		Ranges: []scanner.Range{
 			{
-				Events: []osv.Event{
+				Events: []scanner.Event{
 					{
 						Introduced: "0.0.0",
 					},
@@ -88,39 +88,39 @@ func TestReportContainsHasAvailableFix(t *testing.T) {
 	}
 }
 
-func createMockReport(maxSeverity string, affectedVersions ...osv.Affected) *osv.Report {
-	return &osv.Report{
-		Results: []osv.Result{
+func createMockReport(maxSeverity string, affectedVersions ...scanner.Affected) *scanner.OsvReport {
+	return &scanner.OsvReport{
+		Results: []scanner.Result{
 			{
-				Source: osv.Source{
+				Source: scanner.Source{
 					Path: "test",
 				},
-				Packages: []osv.Package{
+				Packages: []scanner.Package{
 					{
-						PackageInfo: osv.PackageInfo{
+						PackageInfo: scanner.PackageInfo{
 							Name:      "name",
 							Version:   "version",
 							Ecosystem: "ecosystem",
 						},
-						Vulnerabilities: []osv.Vulnerability{
+						Vulnerabilities: []scanner.Vulnerability{
 							{
 								Id:      "test",
 								Summary: "test",
 								Detail:  "test",
 								Version: "test",
-								References: []osv.Reference{
+								References: []scanner.Reference{
 									{
 										Type: "test",
 										Url:  "test",
 									},
 								},
-								DatabaseSpecific: osv.DatabaseSpecific{
+								DatabaseSpecific: scanner.DatabaseSpecific{
 									Severity: "whatever",
 								},
 								Affected: affectedVersions,
 							},
 						},
-						Groups: []osv.Group{
+						Groups: []scanner.Group{
 							{
 								Ids: []string{"test"},
 
