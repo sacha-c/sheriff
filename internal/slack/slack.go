@@ -14,16 +14,17 @@ type IService interface {
 }
 
 type service struct {
-	client iclient
+	client                  iclient
+	isPublicChannelsEnabled bool
 }
 
-func New(token string, debug bool) (IService, error) {
+func New(token string, isPublicChannelsEnabled bool, debug bool) (IService, error) {
 	slackClient := slack.New(token, slack.OptionDebug(debug))
 	if slackClient == nil {
 		return nil, errors.New("failed to create slack client")
 	}
 
-	s := service{&client{client: slackClient}}
+	s := service{&client{client: slackClient}, isPublicChannelsEnabled}
 
 	return &s, nil
 }
@@ -46,12 +47,16 @@ func (s *service) PostMessage(channelName string, options ...slack.MsgOption) (e
 func (s *service) findSlackChannel(channelName string) (channel *slack.Channel, err error) {
 	var nextCursor string
 	var channels []slack.Channel
+	var channelTypes = []string{"private_channel"}
+	if s.isPublicChannelsEnabled {
+		channelTypes = append(channelTypes, "public_channel")
+	}
 
 	for {
 		if channels, nextCursor, err = s.client.GetConversations(&slack.GetConversationsParameters{
 			ExcludeArchived: true,
 			Cursor:          nextCursor,
-			Types:           []string{"public_channel", "private_channel"},
+			Types:           channelTypes,
 			Limit:           1000,
 		}); err != nil {
 			return nil, errors.Join(errors.New("failed to get slack channel list"), err)

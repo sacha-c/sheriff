@@ -26,7 +26,7 @@ func main() {
 	app := &cli.App{
 		Name:    "sheriff",
 		Usage:   "Fighting dangerous dangerous dependencies since 2024.",
-		Version: "0.12.5",
+		Version: "0.12.6",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:        "verbose",
@@ -70,10 +70,28 @@ func main() {
 						EnvVars:  []string{"SLACK_TOKEN"},
 						Category: string(Tokens),
 					},
+					&cli.BoolFlag{
+						Name:        "public-slack-channel",
+						Usage:       "Allow the slack report to be posted to a public channel. Note that reports may contain sensitive information which should not be disclosed on a public channel, for this reason this flag will only be enabled when combined with the testing flag.",
+						Category:    string(Reporting),
+						DefaultText: "false",
+					},
+					&cli.BoolFlag{
+						Name:        "testing",
+						Usage:       "Enable testing mode. This can enable features that are not safe for production use.",
+						Category:    string(Miscellaneous),
+						DefaultText: "false",
+					},
 				},
 				Action: func(cCtx *cli.Context) error {
 					verbose := cCtx.Bool("verbose")
 					log.ConfigureLogs(cCtx.Bool("verbose"))
+
+					var publicChannelsEnabled bool
+					if cCtx.Bool("testing") {
+						zerolog.Warn().Msg("Testing mode enabled. This may enable features that are not safe for production use.")
+						publicChannelsEnabled = cCtx.Bool("public-slack-channel")
+					}
 
 					// Ensure GitLab group path is provided
 					targetGroupPath := cCtx.Args().First()
@@ -87,7 +105,7 @@ func main() {
 						return errors.Join(errors.New("failed to create GitLab service"), err)
 					}
 
-					slackService, err := slack.New(cCtx.String("slack-token"), verbose)
+					slackService, err := slack.New(cCtx.String("slack-token"), publicChannelsEnabled, verbose)
 					if err != nil {
 						return errors.Join(errors.New("failed to create Slack service"), err)
 					}
