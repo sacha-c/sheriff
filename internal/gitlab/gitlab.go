@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 	"github.com/xanzy/go-gitlab"
@@ -94,15 +95,9 @@ func (s *service) GetProjectList(groupPath []string) (projects []*gitlab.Project
 	}
 
 	log.Info().Msgf("Fetching projects for group '%v'", group.Path)
-	projects, _, err = s.client.ListGroupProjects(group.ID,
-		&gitlab.ListGroupProjectsOptions{
-			Archived:         gitlab.Ptr(false),
-			Simple:           gitlab.Ptr(true),
-			IncludeSubGroups: gitlab.Ptr(true),
-			WithShared:       gitlab.Ptr(false),
-		})
+	projects, err = s.listGroupProjects(group.ID)
 	if err != nil {
-		log.Panic().Err(err).Msg("Failed to fetch list of projects")
+		return nil, err
 	}
 
 	var ps []string
@@ -189,6 +184,70 @@ func (s *service) OpenVulnerabilityIssue(project *gitlab.Project, report string)
 	})
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("[%v] Failed to update issue", project.Name), err)
+	}
+
+	return
+}
+
+func (s *service) listGroupProjects(groupID int) (projects []*gitlab.Project, err error) {
+	projects, response, err := s.client.ListGroupProjects(groupID,
+		&gitlab.ListGroupProjectsOptions{
+			Archived:         gitlab.Ptr(false),
+			Simple:           gitlab.Ptr(true),
+			IncludeSubGroups: gitlab.Ptr(true),
+			WithShared:       gitlab.Ptr(false),
+			ListOptions: gitlab.ListOptions{
+				Page: 1,
+			},
+		})
+	if err != nil {
+		return nil, errors.Join(errors.New("failed to fetch list of projects"), err)
+	}
+
+	if response.TotalPages > 1 {
+		nextProjects, err := s.listGroupNextProjects(groupID, response.TotalPages)
+		if err != nil {
+			return nil, err
+		}
+
+		projects = append(projects, nextProjects...)
+	}
+
+	return
+}
+
+func (s *service) listGroupNextProjects(groupID int, totalPages int) (projects []*gitlab.Project, err error) {
+	var wg sync.WaitGroup
+	nextProjectsChan := make(chan []*gitlab.Project, totalPages)
+	for p := 2; p <= totalPages; p++ {
+		wg.Add(1)
+
+		go func(reportsChan chan<- []*gitlab.Project) {
+			log.Info().Int("groupID", groupID).Int("page", p).Msg("Fetching projects of next page")
+			projects, _, err := s.client.ListGroupProjects(groupID,
+				&gitlab.ListGroupProjectsOptions{
+					Archived:         gitlab.Ptr(false),
+					Simple:           gitlab.Ptr(true),
+					IncludeSubGroups: gitlab.Ptr(true),
+					WithShared:       gitlab.Ptr(false),
+					ListOptions: gitlab.ListOptions{
+						Page: p,
+					},
+				})
+			if err != nil {
+				log.Err(err).Int("groupID", groupID).Int("page", p).Msg("Failed to fetch projects of next page, these projects will be missing.")
+			}
+
+			nextProjectsChan <- projects
+			defer wg.Done()
+		}(nextProjectsChan)
+	}
+	wg.Wait()
+	close(nextProjectsChan)
+
+	// Collect projects
+	for nextProjects := range nextProjectsChan {
+		projects = append(projects, nextProjects...)
 	}
 
 	return

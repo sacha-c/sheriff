@@ -26,20 +26,18 @@ func main() {
 	app := &cli.App{
 		Name:    "sheriff",
 		Usage:   "Fighting dangerous dangerous dependencies since 2024.",
-		Version: "0.12.6",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:        "verbose",
-				Usage:       "Enable verbose logging",
-				Category:    string(Miscellaneous),
-				DefaultText: "false",
-			},
-		},
+		Version: "0.13.5",
 		Commands: []*cli.Command{
 			{
 				Name:  "patrol",
 				Usage: "Tell sheriff to patrol a GitLab group looking for vulnerabilities",
 				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:        "verbose",
+						Usage:       "Enable verbose logging",
+						Category:    string(Miscellaneous),
+						DefaultText: "false",
+					},
 					&cli.StringFlag{
 						Name:     "report-slack-channel",
 						Usage:    "Enable reporting to Slack through messages in the specified channel.",
@@ -120,7 +118,7 @@ func main() {
 						targetGroupPath,
 						cCtx.Bool("report-gitlab"),
 						cCtx.String("report-slack-channel"),
-						cCtx.Bool("print-report"),
+						cCtx.Bool("report-stdout"),
 						verbose,
 					); err != nil {
 						return errors.Join(errors.New("failed to scan"), err)

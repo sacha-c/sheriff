@@ -61,11 +61,30 @@ func (s *sheriffService) Patrol(targetGroupPath string, gitlabIssue bool, slackC
 		}
 	}
 
-	if printReport {
-		log.Info().Msgf("%#v", scanReports)
-	}
+	printReports(scanReports, printReport)
 
 	return nil
+}
+
+// Prints reports to the console.
+// Log message is printed as INFO if printInfo is true, DEBUG otherwise.
+func printReports(scanReports []*report.Report, printInfo bool) {
+	var r strings.Builder
+
+	r.WriteString("\nVulnerability Report:\n")
+	r.WriteString(fmt.Sprintf("Total number of projects scanned: %v\n", len(scanReports)))
+	for _, report := range scanReports {
+		r.WriteString(fmt.Sprintln("---------------------------------"))
+		r.WriteString(fmt.Sprintf("%v\n", report.Project.NameWithNamespace))
+		r.WriteString(fmt.Sprintf("\tProject URL: %v\n", report.Project.WebURL))
+		r.WriteString(fmt.Sprintf("\tNumber of vulnerabilities: %v\n", len(report.Vulnerabilities)))
+	}
+
+	if printInfo {
+		log.Info().Msg(r.String())
+	} else {
+		log.Debug().Msg(r.String())
+	}
 }
 
 func parseGroupPaths(path string) ([]string, error) {

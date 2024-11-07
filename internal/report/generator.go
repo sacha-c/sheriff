@@ -8,6 +8,7 @@ import (
 	"sheriff/internal/git"
 	"sheriff/internal/gitlab"
 	"sheriff/internal/scanner"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -101,6 +102,10 @@ func GenerateVulnReport(groupPath []string, gitlabService gitlab.IService, gitSe
 	for r := range reportsChan {
 		reports = append(reports, r)
 	}
+
+	sort.Slice(reports, func(i int, j int) bool {
+		return len(reports[i].Vulnerabilities) > len(reports[j].Vulnerabilities)
+	})
 
 	return
 }

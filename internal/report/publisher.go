@@ -104,8 +104,6 @@ func formatSlackReports(reports []*Report, groupPath string) []goslack.MsgOption
 	)
 	subtitle := goslack.NewContextBlock("subtitle", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Group scanned: %v", groupPath), false, false))
 
-	reports = pie.SortUsing(reports, func(a, b *Report) bool { return len(a.Vulnerabilities) > len(b.Vulnerabilities) })
-
 	vulnerableReports := pie.Filter(reports, func(r *Report) bool { return !r.Error && r.IsVulnerable })
 	nonVulnerableReports := pie.Filter(reports, func(r *Report) bool { return !r.Error && !r.IsVulnerable })
 	errorReports := pie.Filter(reports, func(r *Report) bool { return r.Error })
