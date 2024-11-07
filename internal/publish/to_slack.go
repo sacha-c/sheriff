@@ -1,48 +1,19 @@
-package report
+package publish
 
 import (
 	"errors"
 	"fmt"
-	"sheriff/internal/gitlab"
+	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
 	"sort"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/elliotchance/pie/v2"
-	"github.com/rs/zerolog/log"
 	goslack "github.com/slack-go/slack"
 )
 
-// severityScoreOrder represents the order of SeverityScoreKind by their score in descending order
-// which is how we want to display it in the
-var severityScoreOrder = getSeverityScoreOrder(severityScoreThresholds)
-
-func PublishAsGitlabIssues(reports []*Report, s gitlab.IService) {
-	var wg sync.WaitGroup
-	for _, r := range reports {
-		wg.Add(1)
-		go func() {
-			if r.IsVulnerable {
-				if issue, err := s.OpenVulnerabilityIssue(r.Project, formatGitlabIssue(r)); err != nil {
-					log.Err(err).Msgf("[%s] Failed to open or update issue", r.Project.Name)
-				} else {
-					r.IssueUrl = issue.WebURL
-				}
-			} else {
-				if err := s.CloseVulnerabilityIssue(r.Project); err != nil {
-					log.Err(err).Msgf("[%s] Failed to close issue", r.Project.Name)
-				}
-			}
-			defer wg.Done()
-		}()
-	}
-	wg.Wait()
-}
-
-func PublishAsSlackMessage(channelName string, reports []*Report, groupPath string, s slack.IService) (err error) {
+func PublishAsSlackMessage(channelName string, reports []*scanner.Report, groupPath string, s slack.IService) (err error) {
 	vulnerableReportsBySeverityKind := groupVulnReportsByMaxSeverityKind(reports)
 
 	summary := formatSummary(vulnerableReportsBySeverityKind, len(reports), groupPath)
@@ -66,64 +37,7 @@ func PublishAsSlackMessage(channelName string, reports []*Report, groupPath stri
 
 	return
 }
-
-func formatGitlabIssueTable(groupName string, vs *[]Vulnerability) (md string) {
-	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
-	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
-	for _, vuln := range *vs {
-		md += fmt.Sprintf(
-			"| %v | %v | %v | %v | %v | %v | %v |\n",
-			fmt.Sprintf("https://osv.dev/%s", vuln.Id),
-			vuln.Severity,
-			vuln.PackageEcosystem,
-			vuln.PackageName,
-			vuln.PackageVersion,
-			markdownBoolean(vuln.FixAvailable),
-			vuln.Source,
-		)
-	}
-
-	return
-}
-
-func severityBiggerThan(a string, b string) bool {
-	aFloat, errA := strconv.ParseFloat(a, 32)
-	bFloat, errB := strconv.ParseFloat(b, 32)
-	if errA != nil || errB != nil {
-		log.Warn().Msgf("Failed to parse vulnerability CVSS %v and/or %v to float, defaulting to string comparison", a, b)
-		return a > b
-	}
-	return aFloat > bFloat
-}
-
-func groupVulnReportsByMaxSeverityKind(reports []*Report) map[SeverityScoreKind][]*Report {
-	vulnerableReports := pie.Filter(reports, func(r *Report) bool { return r.IsVulnerable })
-	groupedVulnerabilities := pie.GroupBy(vulnerableReports, func(r *Report) SeverityScoreKind {
-		maxSeverity := pie.SortUsing(r.Vulnerabilities, func(a, b Vulnerability) bool { return a.Severity > b.Severity })[0]
-
-		return maxSeverity.SeverityScoreKind
-	})
-
-	return groupedVulnerabilities
-}
-
-func formatGitlabIssue(r *Report) (mdReport string) {
-	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v Vulnerability) SeverityScoreKind { return v.SeverityScoreKind })
-
-	mdReport = ""
-	for _, groupName := range severityScoreOrder {
-		if group, ok := groupedVulnerabilities[groupName]; ok {
-			sortedVulnsInGroup := pie.SortUsing(group, func(a, b Vulnerability) bool {
-				return severityBiggerThan(a.Severity, b.Severity)
-			})
-			mdReport += formatGitlabIssueTable(string(groupName), &sortedVulnsInGroup)
-		}
-	}
-
-	return
-}
-
-func formatSummary(reportsBySeverityKind map[SeverityScoreKind][]*Report, totalReports int, groupPath string) []goslack.MsgOption {
+func formatSummary(reportsBySeverityKind map[scanner.SeverityScoreKind][]*scanner.Report, totalReports int, groupPath string) []goslack.MsgOption {
 	title := goslack.NewHeaderBlock(
 		goslack.NewTextBlockObject(
 			"plain_text",
@@ -134,7 +48,7 @@ func formatSummary(reportsBySeverityKind map[SeverityScoreKind][]*Report, totalR
 	subtitleGroup := goslack.NewContextBlock("subtitleGroup", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Group scanned: %v", groupPath), false, false))
 	subtitleCount := goslack.NewContextBlock("subtitleCount", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Total projects scanned: %v", totalReports), false, false))
 
-	counts := pie.Map(severityScoreOrder, func(kind SeverityScoreKind) *goslack.TextBlockObject {
+	counts := pie.Map(severityScoreOrder, func(kind scanner.SeverityScoreKind) *goslack.TextBlockObject {
 		if group, ok := reportsBySeverityKind[kind]; ok {
 			return goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("%v: *%v*", kind, len(group)), false, false)
 		}
@@ -160,7 +74,7 @@ func formatSummary(reportsBySeverityKind map[SeverityScoreKind][]*Report, totalR
 	return options
 }
 
-func formatReportMessage(reportsBySeverityKind map[SeverityScoreKind][]*Report) (msgOptions []goslack.MsgOption) {
+func formatReportMessage(reportsBySeverityKind map[scanner.SeverityScoreKind][]*scanner.Report) (msgOptions []goslack.MsgOption) {
 	text := strings.Builder{}
 	for _, kind := range severityScoreOrder {
 		if group, ok := reportsBySeverityKind[kind]; ok {
@@ -216,8 +130,8 @@ func splitMessage(s string, maxLen int) []string {
 }
 
 // getSeverityScoreOrder returns a slice of SeverityScoreKind sorted by their score in descending order
-func getSeverityScoreOrder(thresholds map[SeverityScoreKind]float64) []SeverityScoreKind {
-	kinds := make([]SeverityScoreKind, 0, len(thresholds))
+func getSeverityScoreOrder(thresholds map[scanner.SeverityScoreKind]float64) []scanner.SeverityScoreKind {
+	kinds := make([]scanner.SeverityScoreKind, 0, len(thresholds))
 	for kind := range thresholds {
 		kinds = append(kinds, kind)
 	}
@@ -226,11 +140,4 @@ func getSeverityScoreOrder(thresholds map[SeverityScoreKind]float64) []SeverityS
 	})
 
 	return kinds
-}
-
-func markdownBoolean(b bool) string {
-	if b {
-		return "✅"
-	}
-	return "❌"
 }

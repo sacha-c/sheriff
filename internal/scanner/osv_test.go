@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xanzy/go-gitlab"
 )
 
 func TestReadOSVJson(t *testing.T) {
@@ -90,6 +91,123 @@ func (m *mockCommandRunner) Run(command string, args ...string) (shell.CommandOu
 		Output:   out,
 		ExitCode: m.ExitCode,
 	}, nil
+}
+
+func TestGenerateReportOSV(t *testing.T) {
+	mockReport := createMockReport("10.0")
+	s := osvScanner{}
+	got := s.GenerateReport(&gitlab.Project{}, mockReport)
+
+	assert.NotNil(t, got)
+	assert.Len(t, got.Vulnerabilities, 1)
+
+	want := Vulnerability{
+		Id:                "test",
+		PackageName:       "name",
+		PackageVersion:    "version",
+		PackageEcosystem:  "ecosystem",
+		Source:            "test",
+		Severity:          "10.0",
+		SeverityScoreKind: "CRITICAL",
+		Summary:           "test",
+		Details:           "test",
+	}
+
+	assert.Equal(t, want, got.Vulnerabilities[0])
+}
+
+func TestGenerateReportOSVHasCorrectSeverityKind(t *testing.T) {
+	s := osvScanner{}
+	testCases := map[string]SeverityScoreKind{
+		"":        Unknown,
+		"unknown": Unknown,
+		"0.0":     Low,
+		"2.0":     Low,
+		"3.0":     Moderate,
+		"8.0":     High,
+		"9.0":     Critical,
+		"10.0":    Critical,
+	}
+
+	for input, want := range testCases {
+		t.Run(input, func(t *testing.T) {
+			mockReport := createMockReport(input)
+			got := s.GenerateReport(&gitlab.Project{}, mockReport)
+
+			assert.NotNil(t, got)
+			assert.Equal(t, want, got.Vulnerabilities[0].SeverityScoreKind)
+		})
+	}
+}
+
+func TestReportContainsHasAvailableFix(t *testing.T) {
+	s := osvScanner{}
+	mockReport := createMockReport("10.0", osvAffected{
+		Ranges: []osvRange{
+			{
+				Events: []osvEvent{
+					{
+						Introduced: "0.0.0",
+					},
+					{
+						Fixed: "1.0.0",
+					},
+				},
+			},
+		},
+	})
+	got := s.GenerateReport(&gitlab.Project{}, mockReport)
+
+	assert.NotNil(t, got)
+	assert.Len(t, got.Vulnerabilities, 1)
+	assert.True(t, got.Vulnerabilities[0].FixAvailable)
+}
+
+func createMockReport(maxSeverity string, affectedVersions ...osvAffected) *OsvReport {
+	return &OsvReport{
+		Results: []osvResult{
+			{
+				Source: osvSource{
+					Path: "test",
+				},
+				Packages: []osvPackage{
+					{
+						PackageInfo: osvPackageInfo{
+							Name:      "name",
+							Version:   "version",
+							Ecosystem: "ecosystem",
+						},
+						Vulnerabilities: []osvVulnerability{
+							{
+								Id:      "test",
+								Summary: "test",
+								Detail:  "test",
+								Version: "test",
+								References: []osvReference{
+									{
+										Type: "test",
+										Url:  "test",
+									},
+								},
+								DatabaseSpecific: osvDatabaseSpecific{
+									Severity: "whatever",
+								},
+								Affected: affectedVersions,
+							},
+						},
+						Groups: []osvGroup{
+							{
+								Ids: []string{"test"},
+
+								Aliases:     []string{"test"},
+								MaxSeverity: maxSeverity,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func readMockJsonData(filepath string) ([]byte, error) {

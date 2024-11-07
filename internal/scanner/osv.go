@@ -2,83 +2,87 @@ package scanner
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"sheriff/internal/shell"
+	"strconv"
 
+	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
+	gogitlab "github.com/xanzy/go-gitlab"
 )
 
-type ReferenceKind string
+type osvReferenceKind string
 
 const (
-	AdvisoryKind ReferenceKind = "ADVISORY"
-	WebKind      ReferenceKind = "WEB"
-	PackageKind  ReferenceKind = "PACKAGE"
+	AdvisoryKind osvReferenceKind = "ADVISORY"
+	WebKind      osvReferenceKind = "WEB"
+	PackageKind  osvReferenceKind = "PACKAGE"
 )
 
-type Source struct {
+type osvSource struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
 }
 
-type Reference struct {
-	Type ReferenceKind `json:"type"`
-	Url  string        `json:"url"`
+type osvReference struct {
+	Type osvReferenceKind `json:"type"`
+	Url  string           `json:"url"`
 }
 
-type DatabaseSpecific struct {
+type osvDatabaseSpecific struct {
 	Severity string `json:"severity"`
 }
 
-type Event struct {
+type osvEvent struct {
 	Introduced string `json:"introduced"`
 	Fixed      string `json:"fixed"`
 }
 
-type Range struct {
-	Events []Event `json:"events"`
+type osvRange struct {
+	Events []osvEvent `json:"events"`
 }
 
-type Affected struct {
-	Ranges []Range `json:"ranges"`
+type osvAffected struct {
+	Ranges []osvRange `json:"ranges"`
 }
 
-type Vulnerability struct {
-	Id               string           `json:"id"`
-	Aliases          []string         `json:"aliases"`
-	Summary          string           `json:"summary"`
-	Detail           string           `json:"detail"`
-	Version          string           `json:"schema_version"`
-	References       []Reference      `json:"references"`
-	DatabaseSpecific DatabaseSpecific `json:"database_specific"`
-	Affected         []Affected       `json:"affected"`
+type osvVulnerability struct {
+	Id               string              `json:"id"`
+	Aliases          []string            `json:"aliases"`
+	Summary          string              `json:"summary"`
+	Detail           string              `json:"detail"`
+	Version          string              `json:"schema_version"`
+	References       []osvReference      `json:"references"`
+	DatabaseSpecific osvDatabaseSpecific `json:"database_specific"`
+	Affected         []osvAffected       `json:"affected"`
 }
 
-type Group struct {
+type osvGroup struct {
 	Ids         []string `json:"ids"`
 	Aliases     []string `json:"aliases"`
 	MaxSeverity string   `json:"max_severity"`
 }
 
-type PackageInfo struct {
+type osvPackageInfo struct {
 	Name      string `json:"name"`
 	Version   string `json:"version"`
 	Ecosystem string `json:"ecosystem"`
 }
 
-type Package struct {
-	PackageInfo     PackageInfo     `json:"package"`
-	Vulnerabilities []Vulnerability `json:"vulnerabilities"`
-	Groups          []Group         `json:"groups"`
+type osvPackage struct {
+	PackageInfo     osvPackageInfo     `json:"package"`
+	Vulnerabilities []osvVulnerability `json:"vulnerabilities"`
+	Groups          []osvGroup         `json:"groups"`
 }
 
-type Result struct {
-	Source   Source    `json:"source"`
-	Packages []Package `json:"packages"`
+type osvResult struct {
+	Source   osvSource    `json:"source"`
+	Packages []osvPackage `json:"packages"`
 }
 
 // Vulnerability report as returned by osv-scanner
 type OsvReport struct {
-	Results []Result `json:"results"`
+	Results []osvResult `json:"results"`
 }
 
 // osvScanner is a concrete implementation of the VulnScanner interface
@@ -114,9 +118,93 @@ func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
 	return report, nil
 }
 
+func (s *osvScanner) GenerateReport(p *gogitlab.Project, r *OsvReport) Report {
+	if r == nil {
+		return Report{
+			Project:         p,
+			IsVulnerable:    false,
+			Vulnerabilities: []Vulnerability{},
+		}
+	}
+
+	var vs []Vulnerability
+	for _, p := range r.Results {
+		for _, pkg := range p.Packages {
+			for _, v := range pkg.Vulnerabilities {
+				packageRef := pie.FirstOr(pie.Filter(v.References, func(ref osvReference) bool { return ref.Type == PackageKind }), osvReference{})
+				source := filepath.Base(p.Source.Path)
+				sevIdx := pie.FindFirstUsing(pkg.Groups, func(g osvGroup) bool { return pie.Contains(g.Ids, v.Id) || pie.Contains(g.Aliases, v.Id) })
+				var severity string
+				if sevIdx != -1 {
+					severity = pkg.Groups[sevIdx].MaxSeverity
+				} else {
+					severity = ""
+				}
+
+				vs = append(vs, Vulnerability{
+					Id:                v.Id,
+					PackageName:       pkg.PackageInfo.Name,
+					PackageVersion:    pkg.PackageInfo.Version,
+					PackageUrl:        packageRef.Url,
+					PackageEcosystem:  pkg.PackageInfo.Ecosystem,
+					Source:            source,
+					Severity:          severity,
+					SeverityScoreKind: getSeverityScoreKind(severity),
+					Summary:           v.Summary,
+					Details:           v.Detail,
+					FixAvailable:      hasFixAvailable(v),
+				})
+			}
+		}
+	}
+
+	return Report{
+		Project:         p,
+		IsVulnerable:    len(vs) > 0,
+		Vulnerabilities: vs,
+	}
+}
+
 // readOSVJson reads the JSON output from osv-scanner
 // and returns a Report struct with the results
 func readOSVJson(data []byte) (report *OsvReport, err error) {
 	err = json.Unmarshal(data, &report)
 	return
+}
+
+// getSeverityScoreKind returns the SeverityScoreKind based on the severity score from OSV
+func getSeverityScoreKind(severity string) SeverityScoreKind {
+	if severity == "" {
+		log.Debug().Msg("Severity is empty, defaulting to Unknown")
+		return Unknown
+	}
+	floatSeverity, err := strconv.ParseFloat(severity, 32)
+	if err != nil {
+		log.Warn().Msgf("Failed to parse severity %v to float, defaulting to Unknown", severity)
+		return Unknown
+	}
+
+	maxKind := Unknown
+	for k, v := range SeverityScoreThresholds {
+		if floatSeverity >= v && v >= SeverityScoreThresholds[maxKind] {
+			maxKind = k
+		}
+	}
+	return maxKind
+}
+
+// hasFixAvailable returns true if the vulnerability has at least one version that is not vulnerable
+func hasFixAvailable(v osvVulnerability) bool {
+	// If there is any version with a fixed event, then the vulnerability has at least one version
+	// that is not vulnerable
+	for _, a := range v.Affected {
+		for _, r := range a.Ranges {
+			for _, e := range r.Events {
+				if e.Fixed != "" {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

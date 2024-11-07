@@ -3,15 +3,21 @@ package patrol
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sheriff/internal/git"
 	"sheriff/internal/gitlab"
-	"sheriff/internal/report"
+	"sheriff/internal/publish"
 	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/rs/zerolog/log"
+	gogitlab "github.com/xanzy/go-gitlab"
 )
+
+const tempScanDir = "tmp_scans"
 
 // securityPatroller is the interface of the main security scanner service of this tool.
 type securityPatroller interface {
@@ -43,48 +49,101 @@ func (s *sheriffService) Patrol(targetGroupPath string, gitlabIssue bool, slackC
 		return errors.Join(errors.New("failed to parse gitlab group path"), err)
 	}
 
-	scanReports, err := report.GenerateVulnReport(groupPath, s.gitlabService, s.gitService, s.osvService)
+	scanReports, err := s.scanAndGetReports(groupPath)
 	if err != nil {
 		return errors.Join(errors.New("failed to scan projects"), err)
 	}
 
 	if gitlabIssue {
 		log.Info().Msg("Creating issue in affected projects")
-		report.PublishAsGitlabIssues(scanReports, s.gitlabService)
+		publish.PublishAsGitlabIssues(scanReports, s.gitlabService)
 	}
 
 	if s.slackService != nil && slackChannel != "" {
 		log.Info().Msgf("Posting report to slack channel %v", slackChannel)
 
-		if err := report.PublishAsSlackMessage(slackChannel, scanReports, targetGroupPath, s.slackService); err != nil {
+		if err := publish.PublishAsSlackMessage(slackChannel, scanReports, targetGroupPath, s.slackService); err != nil {
 			log.Err(err).Msg("Failed to post slack report")
 		}
 	}
 
-	printReports(scanReports, printReport)
+	publish.PublishToConsole(scanReports, printReport)
 
 	return nil
 }
 
-// Prints reports to the console.
-// Log message is printed as INFO if printInfo is true, DEBUG otherwise.
-func printReports(scanReports []*report.Report, printInfo bool) {
-	var r strings.Builder
+func (s *sheriffService) scanAndGetReports(groupPath []string) (reports []*scanner.Report, err error) {
+	// Create a temporary directory to store the scans
+	err = os.MkdirAll(tempScanDir, os.ModePerm)
+	if err != nil {
+		return nil, errors.New("could not create temporary directory")
+	}
+	defer os.RemoveAll(tempScanDir)
+	log.Info().Msgf("Created temporary directory %v", tempScanDir)
 
-	r.WriteString("\nVulnerability Report:\n")
-	r.WriteString(fmt.Sprintf("Total number of projects scanned: %v\n", len(scanReports)))
-	for _, report := range scanReports {
-		r.WriteString(fmt.Sprintln("---------------------------------"))
-		r.WriteString(fmt.Sprintf("%v\n", report.Project.NameWithNamespace))
-		r.WriteString(fmt.Sprintf("\tProject URL: %v\n", report.Project.WebURL))
-		r.WriteString(fmt.Sprintf("\tNumber of vulnerabilities: %v\n", len(report.Vulnerabilities)))
+	log.Info().Msg("Getting the list of projects to scan...")
+	projects, err := s.gitlabService.GetProjectList(groupPath)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("could not get project list of group %v", groupPath), err)
 	}
 
-	if printInfo {
-		log.Info().Msg(r.String())
-	} else {
-		log.Debug().Msg(r.String())
+	// Scan all projects in parallel
+	var wg sync.WaitGroup
+	reportsChan := make(chan *scanner.Report, len(projects))
+	for _, project := range projects {
+		wg.Add(1)
+		go func(reportsChan chan<- *scanner.Report) {
+			log.Info().Msgf("[%v] Scanning project", project.Name)
+			if report, err := s.scanProject(project); err != nil {
+				log.Err(err).Msgf("[%v] Failed to scan project, skipping", project.Name)
+				reportsChan <- &scanner.Report{Project: project, Error: true}
+			} else {
+				reportsChan <- report
+			}
+			defer wg.Done()
+		}(reportsChan)
 	}
+	wg.Wait()
+	close(reportsChan)
+
+	// Collect the reports
+	for r := range reportsChan {
+		reports = append(reports, r)
+	}
+
+	sort.Slice(reports, func(i int, j int) bool {
+		return len(reports[i].Vulnerabilities) > len(reports[j].Vulnerabilities)
+	})
+
+	return
+}
+
+// scanProject scans a project for vulnerabilities using the osv scanner.
+func (s *sheriffService) scanProject(project *gogitlab.Project) (report *scanner.Report, err error) {
+	dir, err := os.MkdirTemp(tempScanDir, fmt.Sprintf("%v-", project.Name))
+	if err != nil {
+		return nil, errors.Join(errors.New("failed to create project temporary directory"), err)
+	}
+	defer os.RemoveAll(dir)
+
+	// Clone the project
+	log.Info().Msgf("[%v] Cloning project in %v", project.Name, dir)
+	if err = s.gitService.Clone(dir, project.HTTPURLToRepo); err != nil {
+		return nil, errors.Join(errors.New("failed to clone project"), err)
+	}
+
+	// Scan the project
+	log.Info().Msgf("[%v] Running osv-scanner...", project.Name)
+	osvReport, err := s.osvService.Scan(dir)
+	if err != nil {
+		log.Warn().Msgf("[%v] Failed to run osv-scanner", project.Name)
+		return nil, errors.Join(errors.New("failed to run osv-scanner"), err)
+	}
+
+	r := s.osvService.GenerateReport(project, osvReport)
+	log.Info().Msgf("[%v] Finished scanning project", project.Name)
+
+	return &r, nil
 }
 
 func parseGroupPaths(path string) ([]string, error) {

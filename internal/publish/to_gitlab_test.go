@@ -1,6 +1,7 @@
-package report
+package publish
 
 import (
+	"sheriff/internal/scanner"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +10,7 @@ import (
 // Severities are grouped by severity score kind
 // and they are displayed as a markdown table
 func TestFormatGitlabIssue(t *testing.T) {
-	mockVulnerabilities := []Vulnerability{
+	mockVulnerabilities := []scanner.Vulnerability{
 		{
 			Id:                "test1",
 			PackageName:       "name",
@@ -17,7 +18,7 @@ func TestFormatGitlabIssue(t *testing.T) {
 			PackageEcosystem:  "ecosystem",
 			Source:            "test",
 			Severity:          "10.00",
-			SeverityScoreKind: Critical,
+			SeverityScoreKind: scanner.Critical,
 			Summary:           "test",
 			Details:           "test",
 		},
@@ -28,7 +29,7 @@ func TestFormatGitlabIssue(t *testing.T) {
 			PackageEcosystem:  "ecosystem",
 			Source:            "test",
 			Severity:          "0.00",
-			SeverityScoreKind: Low,
+			SeverityScoreKind: scanner.Low,
 			Summary:           "test",
 			Details:           "test",
 		},
@@ -39,13 +40,13 @@ func TestFormatGitlabIssue(t *testing.T) {
 			PackageEcosystem:  "ecosystem",
 			Source:            "test",
 			Severity:          "5.00",
-			SeverityScoreKind: Moderate,
+			SeverityScoreKind: scanner.Moderate,
 			Summary:           "test",
 			Details:           "test",
 		},
 	}
 
-	got := formatGitlabIssue(&Report{
+	got := formatGitlabIssue(&scanner.Report{
 		Vulnerabilities: mockVulnerabilities,
 	})
 
@@ -72,7 +73,7 @@ func TestFormatGitlabIssue(t *testing.T) {
 
 // Within a severity kind, vulnerabilities should be sorted by severity score in descending order
 func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
-	mockVulnerabilities := []Vulnerability{
+	mockVulnerabilities := []scanner.Vulnerability{
 		{
 			Id:                "test1",
 			PackageName:       "name",
@@ -80,7 +81,7 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 			PackageEcosystem:  "ecosystem",
 			Source:            "test",
 			Severity:          "8.00",
-			SeverityScoreKind: High, // This has no effect on this test
+			SeverityScoreKind: scanner.High, // This has no effect on this test
 			Summary:           "test",
 			Details:           "test",
 		},
@@ -91,7 +92,7 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 			PackageEcosystem:  "ecosystem",
 			Source:            "test",
 			Severity:          "8.9",
-			SeverityScoreKind: High, // This has no effect on this test
+			SeverityScoreKind: scanner.High, // This has no effect on this test
 			Summary:           "test",
 			Details:           "test",
 		},
@@ -102,13 +103,13 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 			PackageEcosystem:  "ecosystem",
 			Source:            "test",
 			Severity:          "8.5",
-			SeverityScoreKind: High, // This has no effect on this test
+			SeverityScoreKind: scanner.High, // This has no effect on this test
 			Summary:           "test",
 			Details:           "test",
 		},
 	}
 
-	got := formatGitlabIssue(&Report{
+	got := formatGitlabIssue(&scanner.Report{
 		Vulnerabilities: mockVulnerabilities,
 	})
 
