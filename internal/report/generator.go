@@ -35,6 +35,7 @@ var severityScoreThresholds = map[SeverityScoreKind]float64{
 	High:     8.0,
 	Moderate: 3.0,
 	Low:      0.0,
+	Unknown:  -1.0, // Arbitrary value to represent unknown severity
 }
 
 const tempScanDir = "tmp_scans"

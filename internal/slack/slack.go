@@ -10,7 +10,7 @@ import (
 )
 
 type IService interface {
-	PostMessage(channelName string, options ...slack.MsgOption) error
+	PostMessage(channelName string, options ...slack.MsgOption) (ts string, err error)
 }
 
 type service struct {
@@ -29,14 +29,15 @@ func New(token string, isPublicChannelsEnabled bool, debug bool) (IService, erro
 	return &s, nil
 }
 
-func (s *service) PostMessage(channelName string, options ...slack.MsgOption) (err error) {
+func (s *service) PostMessage(channelName string, options ...slack.MsgOption) (ts string, err error) {
 	channel, err := s.findSlackChannel(channelName)
 	if err != nil {
 		return
 	}
 
-	if _, _, err := s.client.PostMessage(channel.ID, options...); err != nil {
-		return errors.Join(errors.New("failed to post slack message"), err)
+	_, ts, err = s.client.PostMessage(channel.ID, options...)
+	if err != nil {
+		return ts, errors.Join(errors.New("failed to post slack message"), err)
 	}
 
 	log.Info().Msgf("Posted slack message to channel %v", channelName)

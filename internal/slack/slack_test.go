@@ -37,7 +37,7 @@ func TestPostMessage(t *testing.T) {
 
 	svc := service{&mockClient, false}
 
-	err := svc.PostMessage(channelName, message)
+	_, err := svc.PostMessage(channelName, message)
 
 	assert.Nil(t, err)
 	mockClient.AssertExpectations(t)

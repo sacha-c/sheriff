@@ -1,11 +1,13 @@
 package report
 
 import (
+	"errors"
 	"fmt"
 	"sheriff/internal/gitlab"
 	"sheriff/internal/slack"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,10 +43,25 @@ func PublishAsGitlabIssues(reports []*Report, s gitlab.IService) {
 }
 
 func PublishAsSlackMessage(channelName string, reports []*Report, groupPath string, s slack.IService) (err error) {
-	formattedReport := formatSlackReports(reports, groupPath)
+	vulnerableReportsBySeverityKind := groupVulnReportsByMaxSeverityKind(reports)
 
-	if err = s.PostMessage(channelName, formattedReport...); err != nil {
-		return
+	summary := formatSummary(vulnerableReportsBySeverityKind, len(reports), groupPath)
+
+	ts, err := s.PostMessage(channelName, summary...)
+	if err != nil {
+		return errors.Join(errors.New("failed to post slack summary"), err)
+	}
+
+	msgOptions := formatReportMessage(vulnerableReportsBySeverityKind)
+	for _, option := range msgOptions {
+		_, err = s.PostMessage(
+			channelName,
+			option,
+			goslack.MsgOptionTS(ts), // Replies to the summary message in thread
+		)
+		if err != nil {
+			return errors.Join(errors.New("failed to message in slack summary thread"), err)
+		}
 	}
 
 	return
@@ -70,21 +87,32 @@ func formatGitlabIssueTable(groupName string, vs *[]Vulnerability) (md string) {
 }
 
 func severityBiggerThan(a string, b string) bool {
-	aFloat, err := strconv.ParseFloat(a, 32)
-	bFloat, err := strconv.ParseFloat(b, 32)
-	if err != nil {
+	aFloat, errA := strconv.ParseFloat(a, 32)
+	bFloat, errB := strconv.ParseFloat(b, 32)
+	if errA != nil || errB != nil {
 		log.Warn().Msgf("Failed to parse vulnerability CVSS %v and/or %v to float, defaulting to string comparison", a, b)
 		return a > b
 	}
 	return aFloat > bFloat
 }
 
+func groupVulnReportsByMaxSeverityKind(reports []*Report) map[SeverityScoreKind][]*Report {
+	vulnerableReports := pie.Filter(reports, func(r *Report) bool { return r.IsVulnerable })
+	groupedVulnerabilities := pie.GroupBy(vulnerableReports, func(r *Report) SeverityScoreKind {
+		maxSeverity := pie.SortUsing(r.Vulnerabilities, func(a, b Vulnerability) bool { return a.Severity > b.Severity })[0]
+
+		return maxSeverity.SeverityScoreKind
+	})
+
+	return groupedVulnerabilities
+}
+
 func formatGitlabIssue(r *Report) (mdReport string) {
-	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v Vulnerability) string { return string(v.SeverityScoreKind) })
+	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v Vulnerability) SeverityScoreKind { return v.SeverityScoreKind })
 
 	mdReport = ""
 	for _, groupName := range severityScoreOrder {
-		if group, ok := groupedVulnerabilities[string(groupName)]; ok {
+		if group, ok := groupedVulnerabilities[groupName]; ok {
 			sortedVulnsInGroup := pie.SortUsing(group, func(a, b Vulnerability) bool {
 				return severityBiggerThan(a.Severity, b.Severity)
 			})
@@ -94,7 +122,8 @@ func formatGitlabIssue(r *Report) (mdReport string) {
 
 	return
 }
-func formatSlackReports(reports []*Report, groupPath string) []goslack.MsgOption {
+
+func formatSummary(reportsBySeverityKind map[SeverityScoreKind][]*Report, totalReports int, groupPath string) []goslack.MsgOption {
 	title := goslack.NewHeaderBlock(
 		goslack.NewTextBlockObject(
 			"plain_text",
@@ -102,114 +131,88 @@ func formatSlackReports(reports []*Report, groupPath string) []goslack.MsgOption
 			true, false,
 		),
 	)
-	subtitle := goslack.NewContextBlock("subtitle", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Group scanned: %v", groupPath), false, false))
+	subtitleGroup := goslack.NewContextBlock("subtitleGroup", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Group scanned: %v", groupPath), false, false))
+	subtitleCount := goslack.NewContextBlock("subtitleCount", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Total projects scanned: %v", totalReports), false, false))
 
-	vulnerableReports := pie.Filter(reports, func(r *Report) bool { return !r.Error && r.IsVulnerable })
-	nonVulnerableReports := pie.Filter(reports, func(r *Report) bool { return !r.Error && !r.IsVulnerable })
-	errorReports := pie.Filter(reports, func(r *Report) bool { return r.Error })
+	counts := pie.Map(severityScoreOrder, func(kind SeverityScoreKind) *goslack.TextBlockObject {
+		if group, ok := reportsBySeverityKind[kind]; ok {
+			return goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("%v: *%v*", kind, len(group)), false, false)
+		}
+		return goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("%v: *%v*", kind, 0), false, false)
+	})
 
-	vulnerableSections := pie.Flat(pie.Map(vulnerableReports, formatVulnerableReport))
-	nonVulnerableSections := pie.Flat(pie.Map(nonVulnerableReports, formatSimpleReport))
-	errorSections := pie.Flat(pie.Map(errorReports, formatSimpleReport))
+	countsTitle := goslack.NewSectionBlock(goslack.NewTextBlockObject("mrkdwn", "*Vulnerability Counts*", false, false), nil, nil)
+	countsBlock := goslack.NewSectionBlock(
+		nil,
+		counts,
+		nil,
+	)
 
 	blocks := []goslack.Block{
 		title,
-		subtitle,
-	}
-
-	if len(vulnerableSections) > 0 {
-		blocks = append(blocks,
-			goslack.NewDividerBlock(),
-			goslack.NewSectionBlock(
-				goslack.NewTextBlockObject(
-					"mrkdwn",
-					"*--> Vulnerable Projects* 🚨",
-					false, false,
-				),
-				nil,
-				nil,
-			),
-		)
-		blocks = append(blocks,
-			vulnerableSections...,
-		)
-	}
-
-	if len(nonVulnerableReports) > 0 {
-		blocks = append(blocks,
-			goslack.NewDividerBlock(),
-			goslack.NewSectionBlock(
-				goslack.NewTextBlockObject(
-					"mrkdwn",
-					"*--> Safe Projects* 🌟",
-					false, false,
-				),
-				nil,
-				nil,
-			),
-		)
-		blocks = append(blocks,
-			nonVulnerableSections...,
-		)
-	}
-
-	if len(errorReports) > 0 {
-		blocks = append(blocks,
-			goslack.NewDividerBlock(),
-			goslack.NewSectionBlock(
-				goslack.NewTextBlockObject(
-					"mrkdwn",
-					"*--> Unsuccessfully scanned* ❌",
-					false, false,
-				),
-				nil,
-				nil,
-			),
-		)
-		blocks = append(blocks,
-			errorSections...,
-		)
+		subtitleGroup,
+		subtitleCount,
+		countsTitle,
+		countsBlock,
 	}
 
 	options := []goslack.MsgOption{goslack.MsgOptionBlocks(blocks...)}
-
 	return options
 }
 
-func formatVulnerableReport(r *Report) []goslack.Block {
-	projectName := fmt.Sprintf("<%s|*%s*>", r.Project.WebURL, r.Project.Name)
-	var reportUrl string
-	if r.IssueUrl != "" {
-		reportUrl = fmt.Sprintf("<%s|Full report>", r.IssueUrl)
-	} else {
-		reportUrl = "_full report unavailable_"
-	}
-	vulnerabilityCount := fmt.Sprintf("*Vulnerability count*: %v", len(r.Vulnerabilities))
+func formatReportMessage(reportsBySeverityKind map[SeverityScoreKind][]*Report) (msgOptions []goslack.MsgOption) {
+	text := strings.Builder{}
+	for _, kind := range severityScoreOrder {
+		if group, ok := reportsBySeverityKind[kind]; ok {
+			if len(group) == 0 {
+				continue
+			}
 
-	return []goslack.Block{
-		goslack.NewDividerBlock(),
-		goslack.NewSectionBlock(
-			nil,
-			[]*goslack.TextBlockObject{
-				goslack.NewTextBlockObject("mrkdwn", projectName, false, false),
-				goslack.NewTextBlockObject("mrkdwn", reportUrl, false, false),
-				goslack.NewTextBlockObject("mrkdwn", vulnerabilityCount, false, false),
-			},
-			nil,
-		),
+			text.WriteString(fmt.Sprintf("Projects with vulnerabilities of *%v* severity\n", kind))
+			for _, r := range group {
+				projectName := fmt.Sprintf("<%s|*%s*>\n", r.Project.WebURL, r.Project.Name)
+				var reportUrl string
+				if r.IssueUrl != "" {
+					reportUrl = fmt.Sprintf("\t<%s|Full report>\t\t", r.IssueUrl)
+				} else {
+					reportUrl = "\t_full report unavailable_\t\t"
+				}
+				vulnerabilityCount := fmt.Sprintf("\tVulnerability count: *%v*", len(r.Vulnerabilities))
+
+				text.WriteString(projectName)
+				text.WriteString(reportUrl)
+				text.WriteString(vulnerabilityCount)
+				text.WriteString("\n")
+			}
+			text.WriteString("\n")
+		}
 	}
+
+	textString := text.String()
+	// Slack has a 3001 character limit for messages
+	splitText := splitMessage(textString, 3000)
+
+	for _, chunk := range splitText {
+		msgOptions = append(msgOptions, goslack.MsgOptionBlocks(goslack.NewSectionBlock(goslack.NewTextBlockObject("mrkdwn", chunk, false, false), nil, nil)))
+	}
+
+	return
 }
 
-func formatSimpleReport(r *Report) []goslack.Block {
-	return []goslack.Block{
-		goslack.NewSectionBlock(
-			nil,
-			[]*goslack.TextBlockObject{
-				goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("<%s|*%s*>", r.Project.WebURL, r.Project.Name), false, false),
-			},
-			nil,
-		),
+// Splits a string into chunks of at most maxLen characters
+// Each chunk is determined by the closest newline character
+func splitMessage(s string, maxLen int) []string {
+	var chunks []string
+	for len(s) > maxLen {
+		idx := strings.LastIndex(s[:maxLen], "\n")
+		if idx == -1 {
+			idx = maxLen
+		}
+		chunks = append(chunks, s[:idx])
+		s = s[idx:]
 	}
+	chunks = append(chunks, s)
+	return chunks
 }
 
 // getSeverityScoreOrder returns a slice of SeverityScoreKind sorted by their score in descending order

@@ -21,7 +21,7 @@ func TestScanNoProjects(t *testing.T) {
 	mockGitlabService.On("GetProjectList", []string{"group", "to", "scan"}).Return([]*gitlab.Project{}, nil)
 
 	mockSlackService := &mockSlackService{}
-	mockSlackService.On("PostMessage", "channel", mock.Anything).Return(nil)
+	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
 
 	mockGitService := &mockGitService{}
 	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
@@ -44,7 +44,7 @@ func TestScanNonVulnerableProject(t *testing.T) {
 	mockGitlabService.On("CloseVulnerabilityIssue", mock.Anything).Return(nil)
 
 	mockSlackService := &mockSlackService{}
-	mockSlackService.On("PostMessage", "channel", mock.Anything).Return(nil)
+	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
 
 	mockGitService := &mockGitService{}
 	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
@@ -67,7 +67,7 @@ func TestScanVulnerableProject(t *testing.T) {
 	mockGitlabService.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&gitlab.Issue{}, nil)
 
 	mockSlackService := &mockSlackService{}
-	mockSlackService.On("PostMessage", "channel", mock.Anything).Return(nil)
+	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
 
 	mockGitService := &mockGitService{}
 	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
@@ -122,9 +122,9 @@ type mockSlackService struct {
 	mock.Mock
 }
 
-func (c *mockSlackService) PostMessage(channelName string, options ...slack.MsgOption) error {
+func (c *mockSlackService) PostMessage(channelName string, options ...slack.MsgOption) (string, error) {
 	args := c.Called(channelName, options)
-	return args.Error(0)
+	return args.String(0), args.Error(1)
 }
 
 type mockGitService struct {
