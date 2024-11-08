@@ -11,6 +11,17 @@ import (
 // PublishToConsole prints reports to the terminal console.
 // Log message is printed as INFO if printInfo is true, DEBUG otherwise.
 func PublishToConsole(scanReports []*scanner.Report, printInfo bool) {
+	r := formatReportsMessageForConsole(scanReports)
+	if printInfo {
+		log.Info().Msg(r)
+	} else {
+		log.Debug().Msg(r)
+	}
+}
+
+// formatReportsMessageForConsole formats the scan reports into a string message
+// ready to be sent to the console.
+func formatReportsMessageForConsole(scanReports []*scanner.Report) string {
 	var r strings.Builder
 
 	if len(scanReports) == 0 {
@@ -28,10 +39,5 @@ func PublishToConsole(scanReports []*scanner.Report, printInfo bool) {
 		r.WriteString(fmt.Sprintf("\tProject URL: %v\n", report.Project.WebURL))
 		r.WriteString(fmt.Sprintf("\tNumber of vulnerabilities: %v\n", len(report.Vulnerabilities)))
 	}
-
-	if printInfo {
-		log.Info().Msg(r.String())
-	} else {
-		log.Debug().Msg(r.String())
-	}
+	return r.String()
 }
