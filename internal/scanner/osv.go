@@ -5,11 +5,14 @@ import (
 	"path/filepath"
 	"sheriff/internal/shell"
 	"strconv"
+	"time"
 
 	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
 	gogitlab "github.com/xanzy/go-gitlab"
 )
+
+const osvTimeout = 30 * time.Second
 
 type osvReferenceKind string
 
@@ -96,7 +99,13 @@ func NewOsvScanner() VulnScanner[OsvReport] {
 func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
 	var report *OsvReport
 
-	cmdOut, err := shell.ShellCommandRunner.Run("osv-scanner", "-r", "--verbosity", "error", "--format", "json", dir)
+	cmdOut, err := shell.ShellCommandRunner.Run(
+		shell.CommandInput{
+			Name:    "osv-scanner",
+			Args:    []string{"-r", "--verbosity", "error", "--format", "json", dir},
+			Timeout: osvTimeout,
+		},
+	)
 
 	//Handle exit codes according to https://google.github.io/osv-scanner/output/#return-codes
 	if cmdOut.ExitCode == 0 && err == nil {

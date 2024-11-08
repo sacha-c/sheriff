@@ -78,7 +78,7 @@ type mockCommandRunner struct {
 	ExitCode    int
 }
 
-func (m *mockCommandRunner) Run(command string, args ...string) (shell.CommandOutput, error) {
+func (m *mockCommandRunner) Run(shell.CommandInput) (shell.CommandOutput, error) {
 	out, err := readMockJsonData(m.FixturePath)
 	if err != nil {
 		return shell.CommandOutput{

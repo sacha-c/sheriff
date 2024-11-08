@@ -1,24 +1,38 @@
 package shell
 
 import (
+	"context"
 	"errors"
 	"os/exec"
+	"time"
 )
 
+const defaultTimeout = 5 * time.Second
+
 type CommandRunnerInterface interface {
-	Run(name string, arg ...string) (CommandOutput, error)
+	Run(in CommandInput) (CommandOutput, error)
 }
 type CommandOutput struct {
 	Output   []byte
 	ExitCode int
 }
 
+type CommandInput struct {
+	Name    string
+	Args    []string
+	Timeout time.Duration
+}
+
 // CommandRunner is a struct that implements the CommandRunnerInterface
 // It is used to run shell commands, encapsulating the exec.Command function.
 type shellCommandRunner struct{}
 
-func (c *shellCommandRunner) Run(name string, arg ...string) (CommandOutput, error) {
-	cmd := exec.Command(name, arg...)
+func (c *shellCommandRunner) Run(in CommandInput) (CommandOutput, error) {
+	if in.Timeout == 0 {
+		in.Timeout = defaultTimeout
+	}
+	ctx, _ := context.WithTimeout(context.Background(), in.Timeout)
+	cmd := exec.CommandContext(ctx, in.Name, in.Args...)
 	out, err := cmd.Output()
 
 	exitCode := 0
