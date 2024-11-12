@@ -40,7 +40,7 @@ func (s *service) PostMessage(channelName string, options ...slack.MsgOption) (t
 		return ts, errors.Join(errors.New("failed to post slack message"), err)
 	}
 
-	log.Info().Msgf("Posted slack message to channel %v", channelName)
+	log.Info().Str("channel", channelName).Msg("Posted slack message")
 
 	return
 }
@@ -65,13 +65,13 @@ func (s *service) findSlackChannel(channelName string) (channel *slack.Channel, 
 
 		idx := pie.FindFirstUsing(channels, func(c slack.Channel) bool { return c.Name == channelName })
 		if idx > -1 {
-			log.Info().Msgf("Found slack channel %v", channelName)
+			log.Info().Str("channel", channelName).Msg("Found slack channel")
 			channel = &channels[idx]
 			return
 		} else if nextCursor == "" {
 			return nil, fmt.Errorf("channel %v not found", channelName)
 		}
 
-		log.Debug().Msgf("Channel %v not found in current page, fetching next page %v", channelName, nextCursor)
+		log.Debug().Str("channel", channelName).Str("nextPage", nextCursor).Msg("Channel not found in current page, fetching next page")
 	}
 }

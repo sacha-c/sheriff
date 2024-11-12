@@ -110,11 +110,11 @@ func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
 	//Handle exit codes according to https://google.github.io/osv-scanner/output/#return-codes
 	if cmdOut.ExitCode == 0 && err == nil {
 		// Successful run of osv-scanner, no report because no vulnerabilities found
-		log.Debug().Msgf("osv-scanner did not find vulnerabilities; returned exit code %v", cmdOut.ExitCode)
+		log.Debug().Int("exitCode", cmdOut.ExitCode).Msg("osv-scanner did not find vulnerabilities")
 		return nil, nil
 	} else if cmdOut.ExitCode > 1 || cmdOut.ExitCode == -1 {
 		// Failed to run osv-scanner at all, or it returned an error
-		log.Debug().Msgf("osv-scanner failed to run; returned exit code %v", cmdOut.ExitCode)
+		log.Debug().Int("exitCode", cmdOut.ExitCode).Msg("osv-scanner failed to run")
 		return nil, err
 	}
 	// Error code 1, osv-scanner ran successfully and found vulnerabilities
@@ -189,7 +189,7 @@ func getSeverityScoreKind(severity string) SeverityScoreKind {
 	}
 	floatSeverity, err := strconv.ParseFloat(severity, 32)
 	if err != nil {
-		log.Warn().Msgf("Failed to parse severity %v to float, defaulting to Unknown", severity)
+		log.Warn().Str("severity", severity).Msg("Failed to parse severity to float, defaulting to Unknown")
 		return Unknown
 	}
 

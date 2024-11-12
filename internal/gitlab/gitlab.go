@@ -3,7 +3,6 @@ package gitlab
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -34,7 +33,7 @@ func New(gitlabToken string) (IService, error) {
 }
 
 func (s *service) getTopLevelGroup(groupPath string) (*gitlab.Group, error) {
-	log.Info().Msgf("Getting top-level group %v", groupPath)
+	log.Info().Str("group", groupPath).Msg("Getting top-level group")
 	groups, _, err := s.client.ListGroups(&gitlab.ListGroupsOptions{
 		TopLevelOnly: gitlab.Ptr(true),
 		Search:       gitlab.Ptr(groupPath),
@@ -59,7 +58,7 @@ func (s *service) getSubGroup(subGroupPaths []string, parent *gitlab.Group) (*gi
 	}
 	subGroupPath := subGroupPaths[0]
 
-	log.Info().Msgf("Getting subgroup %v of parent group %v", subGroupPaths[0], parent.Path)
+	log.Info().Str("subGroupPath", subGroupPath).Str("parent", parent.Path).Msg("Getting subgroup")
 
 	groups, _, err := s.client.ListSubGroups(parent.ID, &gitlab.ListSubGroupsOptions{
 		Search: gitlab.Ptr(subGroupPath),
@@ -78,7 +77,7 @@ func (s *service) getSubGroup(subGroupPaths []string, parent *gitlab.Group) (*gi
 		return nil, fmt.Errorf("group %v not found in parent %v", subGroupPath, parent.Path)
 	}
 
-	log.Info().Msgf("Found subgroup %v of parent group %v", group.Path, parent.Path)
+	log.Info().Str("group", group.Path).Str("parent", parent.Path).Msg("Found subgroup")
 
 	return s.getSubGroup(subGroupPaths[1:], group)
 }
@@ -94,7 +93,7 @@ func (s *service) GetProjectList(groupPath []string) (projects []*gitlab.Project
 		return nil, err
 	}
 
-	log.Info().Msgf("Fetching projects for group '%v'", group.Path)
+	log.Info().Str("group", group.Path).Msg("Group found")
 	projects, err = s.listGroupProjects(group.ID)
 	if err != nil {
 		return nil, err
@@ -104,7 +103,7 @@ func (s *service) GetProjectList(groupPath []string) (projects []*gitlab.Project
 	for _, project := range projects {
 		ps = append(ps, project.PathWithNamespace)
 	}
-	log.Info().Msgf("Projects to scan: [\n\t%v\n]", strings.Join(ps, "\n\t"))
+	log.Info().Strs("projects", ps).Msg("Projects to scan")
 
 	return
 }
@@ -115,7 +114,7 @@ func (s *service) getVulnerabilityIssue(project *gitlab.Project) (issue *gitlab.
 		In:     gitlab.Ptr("title"),
 	})
 	if err != nil {
-		log.Err(err).Msg("Failed to fetch current list of issues")
+		log.Error().Err(err).Msg("Failed to fetch current list of issues")
 	}
 
 	if len(issues) > 0 {
@@ -132,12 +131,12 @@ func (s *service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
 	}
 
 	if issue == nil {
-		log.Info().Msgf("[%v] No issue to close, nothing to do", project.Name)
+		log.Info().Str("project", project.Name).Msg("No issue to close, nothing to do")
 		return
 	}
 
 	if issue.State == "closed" {
-		log.Info().Msg("Issue already closed")
+		log.Info().Str("project", project.Name).Msg("Issue already closed")
 		return
 	}
 
@@ -151,7 +150,7 @@ func (s *service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
 		return errors.New("failed to close issue")
 	}
 
-	log.Info().Msgf("[%v] Issue closed", project.Name)
+	log.Info().Str("project", project.Name).Msg("Issue closed")
 
 	return
 }
@@ -163,7 +162,7 @@ func (s *service) OpenVulnerabilityIssue(project *gitlab.Project, report string)
 	}
 
 	if issue == nil {
-		log.Info().Msgf("[%v] Creating new issue", project.Name)
+		log.Info().Str("project", project.Name).Msg("Creating new issue")
 
 		issue, _, err = s.client.CreateIssue(project.ID, &gitlab.CreateIssueOptions{
 			Title:       gitlab.Ptr(VulnerabilityIssueTitle),
@@ -176,7 +175,7 @@ func (s *service) OpenVulnerabilityIssue(project *gitlab.Project, report string)
 		return
 	}
 
-	log.Info().Msgf("[%v] Updating existing issue '%v'", project.Name, issue.Title)
+	log.Info().Str("project", project.Name).Str("issue", issue.Title).Msg("Updating existing issue")
 
 	issue, _, err = s.client.UpdateIssue(project.ID, issue.IID, &gitlab.UpdateIssueOptions{
 		Description: &report,
@@ -235,7 +234,7 @@ func (s *service) listGroupNextProjects(groupID int, totalPages int) (projects [
 					},
 				})
 			if err != nil {
-				log.Err(err).Int("groupID", groupID).Int("page", p).Msg("Failed to fetch projects of next page, these projects will be missing.")
+				log.Error().Err(err).Int("groupID", groupID).Int("page", p).Msg("Failed to fetch projects of next page, these projects will be missing.")
 			}
 
 			nextProjectsChan <- projects

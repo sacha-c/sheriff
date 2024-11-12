@@ -55,15 +55,15 @@ func (s *sheriffService) Patrol(targetGroupPath string, gitlabIssue bool, slackC
 	}
 
 	if gitlabIssue {
-		log.Info().Msg("Creating issue in affected projects")
+		log.Info().Str("group", targetGroupPath).Msg("Creating issue in affected projects")
 		publish.PublishAsGitlabIssues(scanReports, s.gitlabService)
 	}
 
 	if s.slackService != nil && slackChannel != "" {
-		log.Info().Msgf("Posting report to slack channel %v", slackChannel)
+		log.Info().Str("group", targetGroupPath).Str("slackChannel", slackChannel).Msg("Posting report to slack channel")
 
 		if err := publish.PublishAsSlackMessage(slackChannel, scanReports, targetGroupPath, s.slackService); err != nil {
-			log.Err(err).Msg("Failed to post slack report")
+			log.Error().Err(err).Str("group", targetGroupPath).Msg("Failed to post slack report")
 		}
 	}
 
@@ -79,9 +79,9 @@ func (s *sheriffService) scanAndGetReports(groupPath []string) (reports []*scann
 		return nil, errors.New("could not create temporary directory")
 	}
 	defer os.RemoveAll(tempScanDir)
-	log.Info().Msgf("Created temporary directory %v", tempScanDir)
+	log.Info().Str("path", tempScanDir).Msg("Created temporary directory")
+	log.Info().Strs("groups", groupPath).Msg("Getting the list of projects to scan")
 
-	log.Info().Msg("Getting the list of projects to scan...")
 	projects, err := s.gitlabService.GetProjectList(groupPath)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("could not get project list of group %v", groupPath), err)
@@ -93,9 +93,9 @@ func (s *sheriffService) scanAndGetReports(groupPath []string) (reports []*scann
 	for _, project := range projects {
 		wg.Add(1)
 		go func(reportsChan chan<- *scanner.Report) {
-			log.Info().Msgf("[%v] Scanning project", project.Name)
+			log.Info().Str("project", project.Name).Msg("Scanning project")
 			if report, err := s.scanProject(project); err != nil {
-				log.Err(err).Msgf("[%v] Failed to scan project, skipping", project.Name)
+				log.Error().Err(err).Str("project", project.Name).Msg("Failed to scan project, skipping.")
 				reportsChan <- &scanner.Report{Project: project, Error: true}
 			} else {
 				reportsChan <- report
@@ -127,21 +127,21 @@ func (s *sheriffService) scanProject(project *gogitlab.Project) (report *scanner
 	defer os.RemoveAll(dir)
 
 	// Clone the project
-	log.Info().Msgf("[%v] Cloning project in %v", project.Name, dir)
+	log.Info().Str("project", project.Name).Str("dir", dir).Msg("Cloning project")
 	if err = s.gitService.Clone(dir, project.HTTPURLToRepo); err != nil {
 		return nil, errors.Join(errors.New("failed to clone project"), err)
 	}
 
 	// Scan the project
-	log.Info().Msgf("[%v] Running osv-scanner...", project.Name)
+	log.Info().Str("project", project.Name).Msg("Running osv-scanner")
 	osvReport, err := s.osvService.Scan(dir)
 	if err != nil {
-		log.Warn().Msgf("[%v] Failed to run osv-scanner", project.Name)
+		log.Error().Err(err).Str("project", project.Name).Msg("Failed to run osv-scanner")
 		return nil, errors.Join(errors.New("failed to run osv-scanner"), err)
 	}
 
 	r := s.osvService.GenerateReport(project, osvReport)
-	log.Info().Msgf("[%v] Finished scanning project", project.Name)
+	log.Info().Str("project", project.Name).Msg("Finished scanning with osv-scanner")
 
 	return &r, nil
 }

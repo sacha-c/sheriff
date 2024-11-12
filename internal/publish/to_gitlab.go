@@ -22,13 +22,13 @@ func PublishAsGitlabIssues(reports []*scanner.Report, s gitlab.IService) {
 		go func() {
 			if r.IsVulnerable {
 				if issue, err := s.OpenVulnerabilityIssue(r.Project, formatGitlabIssue(r)); err != nil {
-					log.Err(err).Msgf("[%s] Failed to open or update issue", r.Project.Name)
+					log.Error().Err(err).Str("project", r.Project.Name).Msg("Failed to open or update issue")
 				} else {
 					r.IssueUrl = issue.WebURL
 				}
 			} else {
 				if err := s.CloseVulnerabilityIssue(r.Project); err != nil {
-					log.Err(err).Msgf("[%s] Failed to close issue", r.Project.Name)
+					log.Error().Err(err).Str("project", r.Project.Name).Msg("Failed to close issue")
 				}
 			}
 			defer wg.Done()
@@ -41,7 +41,7 @@ func severityBiggerThan(a string, b string) bool {
 	aFloat, errA := strconv.ParseFloat(a, 32)
 	bFloat, errB := strconv.ParseFloat(b, 32)
 	if errA != nil || errB != nil {
-		log.Warn().Msgf("Failed to parse vulnerability CVSS %v and/or %v to float, defaulting to string comparison", a, b)
+		log.Warn().Str("a", a).Str("b", b).Msg("Failed to parse vulnerability CVSS to float, defaulting to string comparison")
 		return a > b
 	}
 	return aFloat > bFloat
