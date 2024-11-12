@@ -2,6 +2,8 @@ package cli
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 	"sheriff/internal/git"
 	"sheriff/internal/gitlab"
 	"sheriff/internal/patrol"
@@ -13,9 +15,26 @@ import (
 	"github.com/urfave/cli/v2/altsrc"
 )
 
+// Regexes very loosely defined based on GitLab's reserved names:
+// https://docs.gitlab.com/ee/user/reserved_names.html#limitations-on-usernames-project-and-group-names-and-slugs
+// In reality the regex should be more restrictive about special characters, for now we're just checking for slashes and non-whitespace characters.
+const groupPathRegex = "^\\S+(\\/\\S+)*$"   // Matches paths like "group" or "group/subgroup" ...
+const projectPathRegex = "^\\S+(\\/\\S+)+$" // Matches paths like "group/project" or "group/subgroup/project" ...
+
+type CommandCategory string
+
+const (
+	Reporting     CommandCategory = "Reporting (configurable by file):"
+	Tokens        CommandCategory = "Tokens:"
+	Miscellaneous CommandCategory = "Miscellaneous:"
+	Scanning      CommandCategory = "Scanning (configurable by file):"
+)
+
 const configFlag = "config"
 const verboseFlag = "verbose"
 const testingFlag = "testing"
+const groupsFlag = "gitlab-groups"
+const projectsFlag = "gitlab-projects"
 const reportSlackChannelFlag = "report-slack-channel"
 const reportGitlabFlag = "report-gitlab-issue"
 const reportStdoutFlag = "report-stdout"
@@ -34,6 +53,18 @@ var PatrolFlags = []cli.Flag{
 		Category: string(Miscellaneous),
 		Value:    false,
 	},
+	altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
+		Name:     groupsFlag,
+		Usage:    "Gitlab groups to scan for vulnerabilities (list argument which can be repeated)",
+		Category: string(Scanning),
+		Action:   validatePaths(groupPathRegex),
+	}),
+	altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
+		Name:     projectsFlag,
+		Usage:    "Gitlab projects to scan for vulnerabilities (list argument which can be repeated)",
+		Category: string(Scanning),
+		Action:   validatePaths(projectPathRegex),
+	}),
 	altsrc.NewBoolFlag(&cli.BoolFlag{
 		Name:     testingFlag,
 		Usage:    "Enable testing mode. This can enable features that are not safe for production use.",
@@ -88,12 +119,6 @@ func PatrolAction(cCtx *cli.Context) error {
 		publicChannelsEnabled = cCtx.Bool(publicSlackChannelFlag)
 	}
 
-	// Ensure GitLab group path is provided
-	targetGroupPath := cCtx.Args().First()
-	if targetGroupPath == "" {
-		return errors.New("gitlab group path argument missing")
-	}
-
 	// Create services
 	gitlabService, err := gitlab.New(cCtx.String(gitlabTokenFlag))
 	if err != nil {
@@ -112,7 +137,8 @@ func PatrolAction(cCtx *cli.Context) error {
 
 	// Run the scan
 	if err := patrolService.Patrol(
-		targetGroupPath,
+		cCtx.StringSlice(groupsFlag),
+		cCtx.StringSlice(projectsFlag),
 		cCtx.Bool(reportGitlabFlag),
 		cCtx.String(reportSlackChannelFlag),
 		cCtx.Bool(reportStdoutFlag),
@@ -122,4 +148,22 @@ func PatrolAction(cCtx *cli.Context) error {
 	}
 
 	return nil
+}
+
+func validatePaths(regex string) func(*cli.Context, []string) error {
+	return func(_ *cli.Context, groups []string) (err error) {
+		rgx, err := regexp.Compile(regex)
+		if err != nil {
+			return err
+		}
+
+		for _, path := range groups {
+			matched := rgx.Match([]byte(path))
+
+			if !matched {
+				return fmt.Errorf("invalid group path: %v", path)
+			}
+		}
+		return
+	}
 }

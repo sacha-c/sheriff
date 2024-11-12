@@ -8,11 +8,52 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func TestPatrolActionGroupMissing(t *testing.T) {
+func TestPatrolActionEmptyRun(t *testing.T) {
 	context := cli.NewContext(cli.NewApp(), flag.NewFlagSet("flagset", flag.ContinueOnError), nil)
 
 	err := PatrolAction(context)
 
-	assert.NotNil(t, err)
-	assert.Equal(t, "gitlab group path argument missing", err.Error())
+	assert.Nil(t, err)
+}
+
+func TestValidatePathGroupPathRegex(t *testing.T) {
+	testCases := []struct {
+		paths []string
+		want  bool
+	}{
+		{[]string{"group"}, true},
+		{[]string{"group/subgroup"}, true},
+		{[]string{"group/subgroup", "not a path"}, false},
+	}
+
+	for _, tc := range testCases {
+		err := validatePaths(groupPathRegex)(nil, tc.paths)
+
+		if tc.want {
+			assert.Nil(t, err)
+		} else {
+			assert.NotNil(t, err)
+		}
+	}
+}
+
+func TestValidatePathProjectPathRegex(t *testing.T) {
+	testCases := []struct {
+		paths []string
+		want  bool
+	}{
+		{[]string{"project"}, false}, // top-level projects don't exist
+		{[]string{"group/project"}, true},
+		{[]string{"group/project", "not a path"}, false},
+	}
+
+	for _, tc := range testCases {
+		err := validatePaths(projectPathRegex)(nil, tc.paths)
+
+		if tc.want {
+			assert.Nil(t, err, tc.paths)
+		} else {
+			assert.NotNil(t, err, tc.paths)
+		}
+	}
 }

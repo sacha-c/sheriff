@@ -9,7 +9,7 @@ func App(args []string) {
 	app := &cli.App{
 		Name:    "sheriff",
 		Usage:   "Fighting dangerous dangerous dependencies since 2024.",
-		Version: "0.16.0",
+		Version: "0.17.3",
 		Commands: []*cli.Command{
 			{
 				Name:  "patrol",
@@ -20,11 +20,9 @@ You can configure the behavior of Sheriff by providing various flags. (see OPTIO
 In addition, you can create a configuration file named sheriff.toml in the current directory. Sheriff will look for this file by default, but you can specify a different configuration file with the --config flag.
 This file is formatted in TOML and can contain any of the flags that can be set on the command line under the 'Reporting' category.
 `,
-				Flags:     PatrolFlags,
-				Action:    PatrolAction,
-				Args:      true,
-				ArgsUsage: "full/path/to/gitlab/group",
-				Before:    CombineBeforeFuncs(ConfigureLogs, GetConfigFileLoader(PatrolFlags, configFlag)),
+				Flags:  PatrolFlags,
+				Action: PatrolAction,
+				Before: CombineBeforeFuncs(ConfigureLogs, GetConfigFileLoader(PatrolFlags, configFlag)),
 			},
 		},
 	}

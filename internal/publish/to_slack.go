@@ -14,10 +14,10 @@ import (
 )
 
 // PublishAsSlackMessage publishes a report of the vulnerabilities scanned to a slack channel
-func PublishAsSlackMessage(channelName string, reports []scanner.Report, groupPath string, s slack.IService) (err error) {
+func PublishAsSlackMessage(channelName string, reports []scanner.Report, groups []string, projects []string, s slack.IService) (err error) {
 	vulnerableReportsBySeverityKind := groupVulnReportsByMaxSeverityKind(reports)
 
-	summary := formatSummary(vulnerableReportsBySeverityKind, len(reports), groupPath)
+	summary := formatSummary(vulnerableReportsBySeverityKind, len(reports), groups, projects)
 
 	ts, err := s.PostMessage(channelName, summary...)
 	if err != nil {
@@ -39,8 +39,21 @@ func PublishAsSlackMessage(channelName string, reports []scanner.Report, groupPa
 	return
 }
 
+func formatSubtitleList(entity string, list []string) *goslack.ContextBlock {
+	var text string
+	if len(list) == 0 {
+		text = fmt.Sprintf("no %v scanned", entity)
+	} else if len(list) == 1 {
+		text = fmt.Sprintf("%v scanned: %v", entity, list[0])
+	} else {
+		text = fmt.Sprintf("%v scanned:\n\t- %v", entity, strings.Join(list, "\n\t- "))
+	}
+
+	return goslack.NewContextBlock(fmt.Sprintf("%v-subtitle", entity), goslack.NewTextBlockObject("mrkdwn", text, false, false))
+}
+
 // formatSummary creates a message block with a summary of the reports
-func formatSummary(reportsBySeverityKind map[scanner.SeverityScoreKind][]scanner.Report, totalReports int, groupPath string) []goslack.MsgOption {
+func formatSummary(reportsBySeverityKind map[scanner.SeverityScoreKind][]scanner.Report, totalReports int, groups []string, projects []string) []goslack.MsgOption {
 	title := goslack.NewHeaderBlock(
 		goslack.NewTextBlockObject(
 			"plain_text",
@@ -48,7 +61,8 @@ func formatSummary(reportsBySeverityKind map[scanner.SeverityScoreKind][]scanner
 			true, false,
 		),
 	)
-	subtitleGroup := goslack.NewContextBlock("subtitleGroup", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Group scanned: %v", groupPath), false, false))
+	subtitleGroups := formatSubtitleList("groups", groups)
+	subtitleProjects := formatSubtitleList("specific projects", projects)
 	subtitleCount := goslack.NewContextBlock("subtitleCount", goslack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Total projects scanned: %v", totalReports), false, false))
 
 	counts := pie.Map(severityScoreOrder, func(kind scanner.SeverityScoreKind) *goslack.TextBlockObject {
@@ -67,7 +81,8 @@ func formatSummary(reportsBySeverityKind map[scanner.SeverityScoreKind][]scanner
 
 	blocks := []goslack.Block{
 		title,
-		subtitleGroup,
+		subtitleGroups,
+		subtitleProjects,
 		subtitleCount,
 		countsTitle,
 		countsBlock,

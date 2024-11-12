@@ -24,7 +24,7 @@ func TestPublishToSlackPostsMessage(t *testing.T) {
 		},
 	}
 
-	err := PublishAsSlackMessage("channel", report, "path/to/repo", mockSlackService)
+	err := PublishAsSlackMessage("channel", report, []string{"path/to/group"}, []string{"path/to/project"}, mockSlackService)
 
 	assert.Nil(t, err)
 	mockSlackService.AssertExpectations(t)
@@ -51,7 +51,7 @@ func TestFormatSummary(t *testing.T) {
 		},
 	}
 
-	msgOpts := formatSummary(groupVulnReportsByMaxSeverityKind(report), len(report), "path/to/repo")
+	msgOpts := formatSummary(groupVulnReportsByMaxSeverityKind(report), len(report), []string{"path/to/group"}, []string{"path/to/project"})
 
 	assert.NotNil(t, msgOpts)
 	assert.Len(t, msgOpts, 1)

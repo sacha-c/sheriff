@@ -11,14 +11,6 @@ import (
 	"github.com/urfave/cli/v2/altsrc"
 )
 
-type CommandCategory string
-
-const (
-	Reporting     CommandCategory = "Reporting (configurable by file):"
-	Tokens        CommandCategory = "Tokens:"
-	Miscellaneous CommandCategory = "Miscellaneous:"
-)
-
 func CombineBeforeFuncs(beforeFuncs ...cli.BeforeFunc) cli.BeforeFunc {
 	return func(cCtx *cli.Context) error {
 		for _, beforeFunc := range beforeFuncs {

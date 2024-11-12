@@ -3,8 +3,10 @@ package gitlab
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/xanzy/go-gitlab"
 )
@@ -13,7 +15,7 @@ const VulnerabilityIssueTitle = "Sheriff - 🚨 Vulnerability report"
 
 // IService is the interface of the GitLab service as needed by sheriff
 type IService interface {
-	GetProjectList(groupPath string) ([]*gitlab.Project, error)
+	GetProjectList(groupPaths []string, projectPaths []string) ([]*gitlab.Project, error)
 	CloseVulnerabilityIssue(project *gitlab.Project) error
 	OpenVulnerabilityIssue(project *gitlab.Project, report string) (*gitlab.Issue, error)
 }
@@ -34,24 +36,26 @@ func New(gitlabToken string) (IService, error) {
 	return &s, nil
 }
 
-// GetProjectList returns the list of projects for the given GitLab group path
-func (s *service) GetProjectList(groupPath string) (projects []*gitlab.Project, err error) {
-	group, err := s.getGroup(groupPath)
+func (s *service) GetProjectList(groupPaths []string, projectPaths []string) (projects []*gitlab.Project, err error) {
+	projects, err = s.gatherProjects(projectPaths)
 	if err != nil {
-		return nil, err
+		log.Error().Err(err).Msg("Failed to fetch projects")
+		err = nil
 	}
 
-	log.Info().Str("group", group.Path).Msg("Group found")
-	projects, err = s.listGroupProjects(group.ID)
+	groupsProjects, err := s.gatherGroupsProjects(groupPaths)
 	if err != nil {
-		return nil, err
+		log.Error().Err(err).Msg("Failed to fetch projects from groups")
+		err = nil
+	} else {
+		projects = append(projects, groupsProjects...)
 	}
 
-	var ps []string
-	for _, project := range projects {
-		ps = append(ps, project.PathWithNamespace)
-	}
-	log.Info().Strs("projects", ps).Msg("Projects to scan")
+	// Filter unique projects -- there may be duplicates between groups, other groups and projects
+	projects = filterUniqueProjects(projects)
+
+	projectsNamespaces := pie.Map(projects, func(p *gitlab.Project) string { return p.PathWithNamespace })
+	log.Info().Strs("projects", projectsNamespaces).Msg("Projects to scan")
 
 	return
 }
@@ -88,24 +92,6 @@ func (s *service) CloseVulnerabilityIssue(project *gitlab.Project) (err error) {
 	return
 }
 
-func (s *service) getGroup(groupPath string) (*gitlab.Group, error) {
-	log.Info().Str("group", groupPath).Msg("Getting group")
-	groups, _, err := s.client.ListGroups(&gitlab.ListGroupsOptions{
-		Search: gitlab.Ptr(groupPath),
-	})
-	if err != nil {
-		return nil, errors.Join(fmt.Errorf("failed to fetch list of groups like %v", groupPath), err)
-	}
-
-	for _, group := range groups {
-		if group.FullPath == groupPath {
-			return group, nil
-		}
-	}
-
-	return nil, fmt.Errorf("group %v not found", groupPath)
-}
-
 // OpenVulnerabilityIssue opens or updates the vulnerability issue for the given project
 func (s *service) OpenVulnerabilityIssue(project *gitlab.Project, report string) (issue *gitlab.Issue, err error) {
 	issue, err = s.getVulnerabilityIssue(project)
@@ -135,6 +121,92 @@ func (s *service) OpenVulnerabilityIssue(project *gitlab.Project, report string)
 	})
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("[%v] Failed to update issue", project.Name), err)
+	}
+
+	return
+}
+
+func (s *service) getGroup(groupPath string) (*gitlab.Group, error) {
+	log.Info().Str("group", groupPath).Msg("Getting group")
+	groups, _, err := s.client.ListGroups(&gitlab.ListGroupsOptions{
+		Search: gitlab.Ptr(groupPath),
+	})
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("failed to fetch list of groups like %v", groupPath), err)
+	}
+
+	for _, group := range groups {
+		if group.FullPath == groupPath {
+			return group, nil
+		}
+	}
+
+	return nil, fmt.Errorf("group %v not found", groupPath)
+}
+
+func (s *service) getProject(path string) (*gitlab.Project, error) {
+	log.Info().Str("path", path).Msg("Getting project")
+
+	lastSlash := strings.LastIndex(path, "/")
+
+	if lastSlash == -1 {
+		return nil, fmt.Errorf("invalid project path %v", path)
+	}
+
+	groupPath := path[:lastSlash]
+
+	group, err := s.getGroup(groupPath)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("failed to fetch group %v", groupPath), err)
+	}
+
+	projects, err := s.listGroupProjects(group.ID)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("failed to fetch list of projects like %v", path), err)
+	}
+
+	for _, project := range projects {
+		if project.PathWithNamespace == path {
+			return project, nil
+		}
+	}
+
+	return nil, fmt.Errorf("project %v not found", path)
+}
+
+func (s *service) gatherGroupsProjects(groupPaths []string) (projects []*gitlab.Project, err error) {
+	for _, groupPath := range groupPaths {
+		group, err := s.getGroup(groupPath)
+		if err != nil {
+			log.Error().Err(err).Str("group", groupPath).Msg("Failed to fetch group")
+			err = nil
+			continue
+		}
+
+		groupProjects, err := s.listGroupProjects(group.ID)
+		if err != nil {
+			log.Error().Err(err).Str("group", groupPath).Msg("Failed to fetch projects of group")
+			err = nil
+			continue
+		}
+
+		projects = append(projects, groupProjects...)
+	}
+
+	return
+}
+
+func (s *service) gatherProjects(projectPaths []string) (projects []*gitlab.Project, err error) {
+	for _, projectPath := range projectPaths {
+		log.Info().Str("project", projectPath).Msg("Getting project")
+		p, err := s.getProject(projectPath)
+		if err != nil {
+			log.Error().Err(err).Str("project", projectPath).Msg("Failed to fetch project")
+			err = nil
+			continue
+		}
+
+		projects = append(projects, p)
 	}
 
 	return
@@ -218,6 +290,19 @@ func (s *service) listGroupNextProjects(groupID int, totalPages int) (projects [
 	// Collect projects
 	for nextProjects := range nextProjectsChan {
 		projects = append(projects, nextProjects...)
+	}
+
+	return
+}
+
+func filterUniqueProjects(projects []*gitlab.Project) (filteredProjects []*gitlab.Project) {
+	projectsNamespaces := make(map[int]bool)
+
+	for _, project := range projects {
+		if _, ok := projectsNamespaces[project.ID]; !ok {
+			projectsNamespaces[project.ID] = true
+			filteredProjects = append(filteredProjects, project)
+		}
 	}
 
 	return
