@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sheriff/internal/git"
 	"sheriff/internal/gitlab"
 	"sheriff/internal/publish"
 	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -43,10 +43,9 @@ func New(gitlabService gitlab.IService, slackService slack.IService, gitService 
 	}
 }
 
-func (s *sheriffService) Patrol(targetGroupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error {
-	groupPath, err := parseGroupPaths(targetGroupPath)
-	if err != nil {
-		return errors.Join(errors.New("failed to parse gitlab group path"), err)
+func (s *sheriffService) Patrol(groupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error {
+	if err := validateGroupPath(groupPath); err != nil {
+		return errors.Join(fmt.Errorf("failed to validate group path %v", groupPath), err)
 	}
 
 	scanReports, err := s.scanAndGetReports(groupPath)
@@ -55,15 +54,15 @@ func (s *sheriffService) Patrol(targetGroupPath string, gitlabIssue bool, slackC
 	}
 
 	if gitlabIssue {
-		log.Info().Str("group", targetGroupPath).Msg("Creating issue in affected projects")
+		log.Info().Str("group", groupPath).Msg("Creating issue in affected projects")
 		publish.PublishAsGitlabIssues(scanReports, s.gitlabService)
 	}
 
 	if s.slackService != nil && slackChannel != "" {
-		log.Info().Str("group", targetGroupPath).Str("slackChannel", slackChannel).Msg("Posting report to slack channel")
+		log.Info().Str("group", groupPath).Str("slackChannel", slackChannel).Msg("Posting report to slack channel")
 
-		if err := publish.PublishAsSlackMessage(slackChannel, scanReports, targetGroupPath, s.slackService); err != nil {
-			log.Error().Err(err).Str("group", targetGroupPath).Msg("Failed to post slack report")
+		if err := publish.PublishAsSlackMessage(slackChannel, scanReports, groupPath, s.slackService); err != nil {
+			log.Error().Err(err).Str("group", groupPath).Msg("Failed to post slack report")
 		}
 	}
 
@@ -72,7 +71,7 @@ func (s *sheriffService) Patrol(targetGroupPath string, gitlabIssue bool, slackC
 	return nil
 }
 
-func (s *sheriffService) scanAndGetReports(groupPath []string) (reports []*scanner.Report, err error) {
+func (s *sheriffService) scanAndGetReports(groupPath string) (reports []*scanner.Report, err error) {
 	// Create a temporary directory to store the scans
 	err = os.MkdirAll(tempScanDir, os.ModePerm)
 	if err != nil {
@@ -80,7 +79,7 @@ func (s *sheriffService) scanAndGetReports(groupPath []string) (reports []*scann
 	}
 	defer os.RemoveAll(tempScanDir)
 	log.Info().Str("path", tempScanDir).Msg("Created temporary directory")
-	log.Info().Strs("groups", groupPath).Msg("Getting the list of projects to scan")
+	log.Info().Str("groups", groupPath).Msg("Getting the list of projects to scan")
 
 	projects, err := s.gitlabService.GetProjectList(groupPath)
 	if err != nil {
@@ -146,15 +145,15 @@ func (s *sheriffService) scanProject(project *gogitlab.Project) (report *scanner
 	return &r, nil
 }
 
-func parseGroupPaths(path string) ([]string, error) {
-	if path == "" {
-		return nil, fmt.Errorf("gitlab path missing: %v", path)
+func validateGroupPath(path string) error {
+	matched, err := regexp.Match("^\\S+(\\/\\S+)*$", []byte(path))
+	if err != nil {
+		return err
 	}
 
-	paths := strings.Split(path, "/")
-	if len(paths) == 0 {
-		return nil, fmt.Errorf("gitlab path incomplete: %v", path)
+	if !matched {
+		return fmt.Errorf("invalid group path: %v", path)
 	}
 
-	return paths, nil
+	return nil
 }

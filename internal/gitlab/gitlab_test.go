@@ -17,12 +17,12 @@ func TestNewService(t *testing.T) {
 
 func TestGetProjectListWithTopLevelGroup(t *testing.T) {
 	mockClient := mockClient{}
-	mockClient.On("ListGroups", mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 1, Path: "group"}}, nil, nil)
+	mockClient.On("ListGroups", mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 1, FullPath: "group"}}, nil, nil)
 	mockClient.On("ListGroupProjects", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Project{{Name: "Hello World"}}, &gitlab.Response{}, nil)
 
 	svc := service{&mockClient}
 
-	projects, err := svc.GetProjectList([]string{"group"})
+	projects, err := svc.GetProjectList("group")
 
 	assert.Nil(t, err)
 	assert.NotEmpty(t, projects)
@@ -32,13 +32,12 @@ func TestGetProjectListWithTopLevelGroup(t *testing.T) {
 
 func TestGetProjectListWithSubGroup(t *testing.T) {
 	mockClient := mockClient{}
-	mockClient.On("ListGroups", mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 1, Path: "group"}}, nil, nil)
-	mockClient.On("ListSubGroups", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 2, Path: "subgroup"}}, nil, nil)
+	mockClient.On("ListGroups", mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 1, FullPath: "group/subgroup"}}, nil, nil)
 	mockClient.On("ListGroupProjects", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Project{{Name: "Hello World"}}, &gitlab.Response{}, nil)
 
 	svc := service{&mockClient}
 
-	projects, err := svc.GetProjectList([]string{"group", "subgroup"})
+	projects, err := svc.GetProjectList("group/subgroup")
 
 	assert.Nil(t, err)
 	assert.NotEmpty(t, projects)
@@ -48,8 +47,7 @@ func TestGetProjectListWithSubGroup(t *testing.T) {
 
 func TestGetProjectListWithNextPage(t *testing.T) {
 	mockClient := mockClient{}
-	mockClient.On("ListGroups", mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 1, Path: "group"}}, nil, nil)
-	mockClient.On("ListSubGroups", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 2, Path: "subgroup"}}, nil, nil)
+	mockClient.On("ListGroups", mock.Anything, mock.Anything).Return([]*gitlab.Group{{ID: 1, FullPath: "group/subgroup"}}, nil, nil)
 	mockClient.On("ListGroupProjects", mock.Anything, &gitlab.ListGroupProjectsOptions{
 		Archived:         gitlab.Ptr(false),
 		Simple:           gitlab.Ptr(true),
@@ -71,7 +69,7 @@ func TestGetProjectListWithNextPage(t *testing.T) {
 
 	svc := service{&mockClient}
 
-	projects, err := svc.GetProjectList([]string{"group", "subgroup"})
+	projects, err := svc.GetProjectList("group/subgroup")
 
 	assert.Nil(t, err)
 	assert.Len(t, projects, 2)
@@ -136,15 +134,6 @@ type mockClient struct {
 
 func (c *mockClient) ListGroups(opt *gitlab.ListGroupsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.Group, *gitlab.Response, error) {
 	args := c.Called(opt, options)
-	var r *gitlab.Response
-	if resp := args.Get(1); resp != nil {
-		r = args.Get(1).(*gitlab.Response)
-	}
-	return args.Get(0).([]*gitlab.Group), r, args.Error(2)
-}
-
-func (c *mockClient) ListSubGroups(groupId int, opt *gitlab.ListSubGroupsOptions, options ...gitlab.RequestOptionFunc) ([]*gitlab.Group, *gitlab.Response, error) {
-	args := c.Called(groupId, opt, options)
 	var r *gitlab.Response
 	if resp := args.Get(1); resp != nil {
 		r = args.Get(1).(*gitlab.Response)

@@ -18,7 +18,7 @@ func TestNewService(t *testing.T) {
 
 func TestScanNoProjects(t *testing.T) {
 	mockGitlabService := &mockGitlabService{}
-	mockGitlabService.On("GetProjectList", []string{"group", "to", "scan"}).Return([]*gitlab.Project{}, nil)
+	mockGitlabService.On("GetProjectList", "group/to/scan").Return([]*gitlab.Project{}, nil)
 
 	mockSlackService := &mockSlackService{}
 	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
@@ -40,7 +40,7 @@ func TestScanNoProjects(t *testing.T) {
 
 func TestScanNonVulnerableProject(t *testing.T) {
 	mockGitlabService := &mockGitlabService{}
-	mockGitlabService.On("GetProjectList", []string{"group", "to", "scan"}).Return([]*gitlab.Project{{Name: "Hello World", HTTPURLToRepo: "https://gitlab.com/group/to/scan.git"}}, nil)
+	mockGitlabService.On("GetProjectList", "group/to/scan").Return([]*gitlab.Project{{Name: "Hello World", HTTPURLToRepo: "https://gitlab.com/group/to/scan.git"}}, nil)
 	mockGitlabService.On("CloseVulnerabilityIssue", mock.Anything).Return(nil)
 
 	mockSlackService := &mockSlackService{}
@@ -64,7 +64,7 @@ func TestScanNonVulnerableProject(t *testing.T) {
 
 func TestScanVulnerableProject(t *testing.T) {
 	mockGitlabService := &mockGitlabService{}
-	mockGitlabService.On("GetProjectList", []string{"group", "to", "scan"}).Return([]*gitlab.Project{{Name: "Hello World", HTTPURLToRepo: "https://gitlab.com/group/to/scan.git"}}, nil)
+	mockGitlabService.On("GetProjectList", "group/to/scan").Return([]*gitlab.Project{{Name: "Hello World", HTTPURLToRepo: "https://gitlab.com/group/to/scan.git"}}, nil)
 	mockGitlabService.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&gitlab.Issue{}, nil)
 
 	mockSlackService := &mockSlackService{}
@@ -98,7 +98,7 @@ type mockGitlabService struct {
 	mock.Mock
 }
 
-func (c *mockGitlabService) GetProjectList(groupPath []string) ([]*gitlab.Project, error) {
+func (c *mockGitlabService) GetProjectList(groupPath string) ([]*gitlab.Project, error) {
 	args := c.Called(groupPath)
 	return args.Get(0).([]*gitlab.Project), args.Error(1)
 }

@@ -12,7 +12,7 @@ import (
 const VulnerabilityIssueTitle = "SecurityScanner - Vulnerability report"
 
 type IService interface {
-	GetProjectList(groupPath []string) ([]*gitlab.Project, error)
+	GetProjectList(groupPath string) ([]*gitlab.Project, error)
 	CloseVulnerabilityIssue(project *gitlab.Project) error
 	OpenVulnerabilityIssue(project *gitlab.Project, report string) (*gitlab.Issue, error)
 }
@@ -32,18 +32,17 @@ func New(gitlabToken string) (IService, error) {
 	return &s, nil
 }
 
-func (s *service) getTopLevelGroup(groupPath string) (*gitlab.Group, error) {
-	log.Info().Str("group", groupPath).Msg("Getting top-level group")
+func (s *service) getGroup(groupPath string) (*gitlab.Group, error) {
+	log.Info().Str("group", groupPath).Msg("Getting group")
 	groups, _, err := s.client.ListGroups(&gitlab.ListGroupsOptions{
-		TopLevelOnly: gitlab.Ptr(true),
-		Search:       gitlab.Ptr(groupPath),
+		Search: gitlab.Ptr(groupPath),
 	})
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("failed to fetch list of groups like %v", groupPath), err)
 	}
 
 	for _, group := range groups {
-		if group.Path == groupPath {
+		if group.FullPath == groupPath {
 			return group, nil
 		}
 	}
@@ -51,44 +50,8 @@ func (s *service) getTopLevelGroup(groupPath string) (*gitlab.Group, error) {
 	return nil, fmt.Errorf("group %v not found", groupPath)
 }
 
-// Function to get subgroups recursively
-func (s *service) getSubGroup(subGroupPaths []string, parent *gitlab.Group) (*gitlab.Group, error) {
-	if len(subGroupPaths) == 0 {
-		return parent, nil
-	}
-	subGroupPath := subGroupPaths[0]
-
-	log.Info().Str("subGroupPath", subGroupPath).Str("parent", parent.Path).Msg("Getting subgroup")
-
-	groups, _, err := s.client.ListSubGroups(parent.ID, &gitlab.ListSubGroupsOptions{
-		Search: gitlab.Ptr(subGroupPath),
-	})
-	if err != nil {
-		return nil, errors.Join(fmt.Errorf("error when search for group %v", subGroupPath), err)
-	}
-
-	var group *gitlab.Group
-	for _, g := range groups {
-		if g.Path == subGroupPath {
-			group = g
-		}
-	}
-	if group == nil {
-		return nil, fmt.Errorf("group %v not found in parent %v", subGroupPath, parent.Path)
-	}
-
-	log.Info().Str("group", group.Path).Str("parent", parent.Path).Msg("Found subgroup")
-
-	return s.getSubGroup(subGroupPaths[1:], group)
-}
-
-func (s *service) GetProjectList(groupPath []string) (projects []*gitlab.Project, err error) {
-	topGroup, err := s.getTopLevelGroup(groupPath[0])
-	if err != nil {
-		return nil, err
-	}
-
-	group, err := s.getSubGroup(groupPath[1:], topGroup)
+func (s *service) GetProjectList(groupPath string) (projects []*gitlab.Project, err error) {
+	group, err := s.getGroup(groupPath)
 	if err != nil {
 		return nil, err
 	}
