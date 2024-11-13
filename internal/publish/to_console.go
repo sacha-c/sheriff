@@ -31,9 +31,6 @@ func formatReportsMessageForConsole(scanReports []scanner.Report) string {
 	r.WriteString("\nVulnerability Report:\n")
 	r.WriteString(fmt.Sprintf("Total number of projects scanned: %v\n", len(scanReports)))
 	for _, report := range scanReports {
-		if report.Project == nil {
-			continue
-		}
 		r.WriteString(fmt.Sprintln("---------------------------------"))
 		r.WriteString(fmt.Sprintf("%v\n", report.Project.PathWithNamespace))
 		r.WriteString(fmt.Sprintf("\tProject URL: %v\n", report.Project.WebURL))

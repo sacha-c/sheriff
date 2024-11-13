@@ -136,7 +136,7 @@ func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
 }
 
 // GenerateReport generates a Report struct from the OsvReport.
-func (s *osvScanner) GenerateReport(p *gogitlab.Project, r *OsvReport) Report {
+func (s *osvScanner) GenerateReport(p gogitlab.Project, r *OsvReport) Report {
 	if r == nil {
 		return Report{
 			Project:         p,

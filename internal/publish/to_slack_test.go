@@ -61,7 +61,7 @@ func TestFormatReportMessage(t *testing.T) {
 	reportBySeverityKind := map[scanner.SeverityScoreKind][]scanner.Report{
 		scanner.Critical: {
 			{
-				Project: &gogitlab.Project{
+				Project: gogitlab.Project{
 					Name:   "project1",
 					WebURL: "http://example.com",
 				},
@@ -77,7 +77,7 @@ func TestFormatReportMessage(t *testing.T) {
 		},
 		scanner.High: {
 			{
-				Project: &gogitlab.Project{
+				Project: gogitlab.Project{
 					Name:   "project2",
 					WebURL: "http://example2.com",
 				},

@@ -92,6 +92,7 @@ func (s *sheriffService) scanAndGetReports(groupPaths []string, projectPaths []s
 	for _, project := range projects {
 		wg.Add(1)
 		go func(reportsChan chan<- scanner.Report) {
+			defer wg.Done()
 			log.Info().Str("project", project.Name).Msg("Scanning project")
 			if report, err := s.scanProject(project); err != nil {
 				log.Error().Err(err).Str("project", project.Name).Msg("Failed to scan project, skipping.")
@@ -99,7 +100,6 @@ func (s *sheriffService) scanAndGetReports(groupPaths []string, projectPaths []s
 			} else {
 				reportsChan <- *report
 			}
-			defer wg.Done()
 		}(reportsChan)
 	}
 	wg.Wait()
@@ -118,7 +118,7 @@ func (s *sheriffService) scanAndGetReports(groupPaths []string, projectPaths []s
 }
 
 // scanProject scans a project for vulnerabilities using the osv scanner.
-func (s *sheriffService) scanProject(project *gogitlab.Project) (report *scanner.Report, err error) {
+func (s *sheriffService) scanProject(project gogitlab.Project) (report *scanner.Report, err error) {
 	dir, err := os.MkdirTemp(tempScanDir, fmt.Sprintf("%v-", project.Name))
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to create project temporary directory"), err)

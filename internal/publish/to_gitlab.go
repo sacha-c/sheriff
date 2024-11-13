@@ -21,6 +21,7 @@ func PublishAsGitlabIssues(reports []scanner.Report, s gitlab.IService) {
 	for _, r := range reports {
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			if r.IsVulnerable {
 				if issue, err := s.OpenVulnerabilityIssue(r.Project, formatGitlabIssue(r)); err != nil {
 					log.Error().Err(err).Str("project", r.Project.Name).Msg("Failed to open or update issue")
@@ -32,7 +33,6 @@ func PublishAsGitlabIssues(reports []scanner.Report, s gitlab.IService) {
 					log.Error().Err(err).Str("project", r.Project.Name).Msg("Failed to close issue")
 				}
 			}
-			defer wg.Done()
 		}()
 	}
 	wg.Wait()

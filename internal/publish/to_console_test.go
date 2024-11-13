@@ -11,7 +11,7 @@ import (
 func TestFormatReportMessageForConsole(t *testing.T) {
 	reports := []scanner.Report{
 		{
-			Project: &gogitlab.Project{
+			Project: gogitlab.Project{
 				Name:   "project1",
 				WebURL: "http://example.com",
 			},
@@ -27,7 +27,7 @@ func TestFormatReportMessageForConsole(t *testing.T) {
 			},
 		},
 		{
-			Project: &gogitlab.Project{
+			Project: gogitlab.Project{
 				Name:   "project2",
 				WebURL: "http://example2.com",
 			},

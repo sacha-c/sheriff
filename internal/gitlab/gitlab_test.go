@@ -128,7 +128,7 @@ func TestCloseVulnerabilityIssue(t *testing.T) {
 
 	svc := service{&mockClient}
 
-	err := svc.CloseVulnerabilityIssue(&gitlab.Project{})
+	err := svc.CloseVulnerabilityIssue(gitlab.Project{})
 
 	assert.Nil(t, err)
 	mockClient.AssertExpectations(t)
@@ -140,7 +140,7 @@ func TestCloseVulnerabilityIssueAlreadyClosed(t *testing.T) {
 
 	svc := service{&mockClient}
 
-	err := svc.CloseVulnerabilityIssue(&gitlab.Project{})
+	err := svc.CloseVulnerabilityIssue(gitlab.Project{})
 
 	assert.Nil(t, err)
 	mockClient.AssertExpectations(t)
@@ -152,7 +152,7 @@ func TestCloseVulnerabilityIssueNoIssue(t *testing.T) {
 
 	svc := service{&mockClient}
 
-	err := svc.CloseVulnerabilityIssue(&gitlab.Project{})
+	err := svc.CloseVulnerabilityIssue(gitlab.Project{})
 
 	assert.Nil(t, err)
 	mockClient.AssertExpectations(t)
@@ -165,14 +165,14 @@ func TestOpenVulnerabilityIssue(t *testing.T) {
 
 	svc := service{&mockClient}
 
-	i, err := svc.OpenVulnerabilityIssue(&gitlab.Project{}, "report")
+	i, err := svc.OpenVulnerabilityIssue(gitlab.Project{}, "report")
 	assert.Nil(t, err)
 	assert.NotNil(t, i)
 	assert.Equal(t, 666, i.ID)
 }
 
 func TestFilterUniqueProjects(t *testing.T) {
-	projects := []*gitlab.Project{
+	projects := []gitlab.Project{
 		{ID: 1},
 		{ID: 1},
 		{ID: 2},
@@ -186,6 +186,22 @@ func TestFilterUniqueProjects(t *testing.T) {
 	assert.Equal(t, 1, uniqueProjects[0].ID)
 	assert.Equal(t, 2, uniqueProjects[1].ID)
 	assert.Equal(t, 3, uniqueProjects[2].ID)
+}
+
+func TestDereferenceProjectsPointers(t *testing.T) {
+	projects := []*gitlab.Project{
+		{ID: 1},
+		nil,
+		{ID: 2},
+		nil,
+	}
+
+	dereferencedProjects, errCount := dereferenceProjectsPointers(projects)
+
+	assert.Len(t, dereferencedProjects, 2)
+	assert.Equal(t, 1, dereferencedProjects[0].ID)
+	assert.Equal(t, 2, dereferencedProjects[1].ID)
+	assert.Equal(t, 2, errCount)
 }
 
 type mockClient struct {
