@@ -13,7 +13,8 @@ import (
 	goslack "github.com/slack-go/slack"
 )
 
-func PublishAsSlackMessage(channelName string, reports []*scanner.Report, groupPath string, s slack.IService) (err error) {
+// PublishAsSlackMessage publishes a report of the vulnerabilities scanned to a slack channel
+func PublishAsSlackMessage(channelName string, reports []scanner.Report, groupPath string, s slack.IService) (err error) {
 	vulnerableReportsBySeverityKind := groupVulnReportsByMaxSeverityKind(reports)
 
 	summary := formatSummary(vulnerableReportsBySeverityKind, len(reports), groupPath)
@@ -37,7 +38,9 @@ func PublishAsSlackMessage(channelName string, reports []*scanner.Report, groupP
 
 	return
 }
-func formatSummary(reportsBySeverityKind map[scanner.SeverityScoreKind][]*scanner.Report, totalReports int, groupPath string) []goslack.MsgOption {
+
+// formatSummary creates a message block with a summary of the reports
+func formatSummary(reportsBySeverityKind map[scanner.SeverityScoreKind][]scanner.Report, totalReports int, groupPath string) []goslack.MsgOption {
 	title := goslack.NewHeaderBlock(
 		goslack.NewTextBlockObject(
 			"plain_text",
@@ -74,7 +77,8 @@ func formatSummary(reportsBySeverityKind map[scanner.SeverityScoreKind][]*scanne
 	return options
 }
 
-func formatReportMessage(reportsBySeverityKind map[scanner.SeverityScoreKind][]*scanner.Report) (msgOptions []goslack.MsgOption) {
+// formatReportMessage formats the reports as a slack message, splitting the message into chunks if necessary
+func formatReportMessage(reportsBySeverityKind map[scanner.SeverityScoreKind][]scanner.Report) (msgOptions []goslack.MsgOption) {
 	text := strings.Builder{}
 	for _, kind := range severityScoreOrder {
 		if group, ok := reportsBySeverityKind[kind]; ok {

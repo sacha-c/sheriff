@@ -13,7 +13,7 @@ import (
 func TestPublishToSlackPostsMessage(t *testing.T) {
 	mockSlackService := &mockSlackService{}
 	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
-	report := []*scanner.Report{
+	report := []scanner.Report{
 		{
 			IsVulnerable: true,
 			Vulnerabilities: []scanner.Vulnerability{
@@ -31,7 +31,7 @@ func TestPublishToSlackPostsMessage(t *testing.T) {
 }
 
 func TestFormatSummary(t *testing.T) {
-	report := []*scanner.Report{
+	report := []scanner.Report{
 		{
 			IsVulnerable: true,
 			Vulnerabilities: []scanner.Vulnerability{
@@ -58,7 +58,7 @@ func TestFormatSummary(t *testing.T) {
 }
 
 func TestFormatReportMessage(t *testing.T) {
-	reportBySeverityKind := map[scanner.SeverityScoreKind][]*scanner.Report{
+	reportBySeverityKind := map[scanner.SeverityScoreKind][]scanner.Report{
 		scanner.Critical: {
 			{
 				Project: &gogitlab.Project{

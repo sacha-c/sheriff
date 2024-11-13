@@ -17,7 +17,7 @@ RUN go build -o build/
 
 FROM ghcr.io/google/osv-scanner:v${OSV_SCANNER_VERSION} AS osv-scanner
 
-FROM busybox:${BUSYBOX_VERSION}-uclibc as final
+FROM busybox:${BUSYBOX_VERSION}-uclibc AS final
 
 WORKDIR /app
 

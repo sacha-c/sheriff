@@ -46,7 +46,7 @@ func TestFormatGitlabIssue(t *testing.T) {
 		},
 	}
 
-	got := formatGitlabIssue(&scanner.Report{
+	got := formatGitlabIssue(scanner.Report{
 		Vulnerabilities: mockVulnerabilities,
 	})
 
@@ -109,7 +109,7 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 		},
 	}
 
-	got := formatGitlabIssue(&scanner.Report{
+	got := formatGitlabIssue(scanner.Report{
 		Vulnerabilities: mockVulnerabilities,
 	})
 

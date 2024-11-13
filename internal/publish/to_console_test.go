@@ -9,7 +9,7 @@ import (
 )
 
 func TestFormatReportMessageForConsole(t *testing.T) {
-	reports := []*scanner.Report{
+	reports := []scanner.Report{
 		{
 			Project: &gogitlab.Project{
 				Name:   "project1",

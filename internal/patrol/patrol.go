@@ -71,7 +71,7 @@ func (s *sheriffService) Patrol(groupPath string, gitlabIssue bool, slackChannel
 	return nil
 }
 
-func (s *sheriffService) scanAndGetReports(groupPath string) (reports []*scanner.Report, err error) {
+func (s *sheriffService) scanAndGetReports(groupPath string) (reports []scanner.Report, err error) {
 	// Create a temporary directory to store the scans
 	err = os.MkdirAll(tempScanDir, os.ModePerm)
 	if err != nil {
@@ -88,16 +88,16 @@ func (s *sheriffService) scanAndGetReports(groupPath string) (reports []*scanner
 
 	// Scan all projects in parallel
 	var wg sync.WaitGroup
-	reportsChan := make(chan *scanner.Report, len(projects))
+	reportsChan := make(chan scanner.Report, len(projects))
 	for _, project := range projects {
 		wg.Add(1)
-		go func(reportsChan chan<- *scanner.Report) {
+		go func(reportsChan chan<- scanner.Report) {
 			log.Info().Str("project", project.Name).Msg("Scanning project")
 			if report, err := s.scanProject(project); err != nil {
 				log.Error().Err(err).Str("project", project.Name).Msg("Failed to scan project, skipping.")
-				reportsChan <- &scanner.Report{Project: project, Error: true}
+				reportsChan <- scanner.Report{Project: project, Error: true}
 			} else {
-				reportsChan <- report
+				reportsChan <- *report
 			}
 			defer wg.Done()
 		}(reportsChan)

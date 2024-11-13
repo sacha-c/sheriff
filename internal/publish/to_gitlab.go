@@ -15,7 +15,8 @@ import (
 // which is how we want to display it in the
 var severityScoreOrder = getSeverityScoreOrder(scanner.SeverityScoreThresholds)
 
-func PublishAsGitlabIssues(reports []*scanner.Report, s gitlab.IService) {
+// PublishAsGitlabIssues creates or updates GitLab Issue reports for the given reports
+func PublishAsGitlabIssues(reports []scanner.Report, s gitlab.IService) {
 	var wg sync.WaitGroup
 	for _, r := range reports {
 		wg.Add(1)
@@ -47,9 +48,10 @@ func severityBiggerThan(a string, b string) bool {
 	return aFloat > bFloat
 }
 
-func groupVulnReportsByMaxSeverityKind(reports []*scanner.Report) map[scanner.SeverityScoreKind][]*scanner.Report {
-	vulnerableReports := pie.Filter(reports, func(r *scanner.Report) bool { return r.IsVulnerable })
-	groupedVulnerabilities := pie.GroupBy(vulnerableReports, func(r *scanner.Report) scanner.SeverityScoreKind {
+// groupVulnReportsByMaxSeverityKind groups the reports by the maximum severity kind of the vulnerabilities
+func groupVulnReportsByMaxSeverityKind(reports []scanner.Report) map[scanner.SeverityScoreKind][]scanner.Report {
+	vulnerableReports := pie.Filter(reports, func(r scanner.Report) bool { return r.IsVulnerable })
+	groupedVulnerabilities := pie.GroupBy(vulnerableReports, func(r scanner.Report) scanner.SeverityScoreKind {
 		maxSeverity := pie.SortUsing(r.Vulnerabilities, func(a, b scanner.Vulnerability) bool { return a.Severity > b.Severity })[0]
 
 		return maxSeverity.SeverityScoreKind
@@ -58,7 +60,8 @@ func groupVulnReportsByMaxSeverityKind(reports []*scanner.Report) map[scanner.Se
 	return groupedVulnerabilities
 }
 
-func formatGitlabIssue(r *scanner.Report) (mdReport string) {
+// formatGitlabIssue formats the report as a GitLab issue
+func formatGitlabIssue(r scanner.Report) (mdReport string) {
 	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v scanner.Vulnerability) scanner.SeverityScoreKind { return v.SeverityScoreKind })
 
 	mdReport = ""
