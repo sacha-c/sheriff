@@ -10,7 +10,7 @@ import (
 	gogitlab "github.com/xanzy/go-gitlab"
 )
 
-func TestPublishToSlackPostsMessage(t *testing.T) {
+func TestPublishAsGeneralSlackMessage(t *testing.T) {
 	mockSlackService := &mockSlackService{}
 	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
 	report := []scanner.Report{
@@ -24,10 +24,29 @@ func TestPublishToSlackPostsMessage(t *testing.T) {
 		},
 	}
 
-	err := PublishAsSlackMessage("channel", report, []string{"path/to/group"}, []string{"path/to/project"}, mockSlackService)
+	err := PublishAsGeneralSlackMessage("channel", report, []string{"path/to/group"}, []string{"path/to/project"}, mockSlackService)
 
 	assert.Nil(t, err)
 	mockSlackService.AssertExpectations(t)
+}
+
+func TestPublishAsSpecificChannelSlackMessage(t *testing.T) {
+	mockSlackService := &mockSlackService{}
+	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
+	report := scanner.Report{
+		IsVulnerable: true,
+		Vulnerabilities: []scanner.Vulnerability{
+			{
+				Id: "CVE-2021-1234",
+			},
+		},
+		ProjectConfig: scanner.ProjectConfig{SlackChannel: "channel"},
+	}
+
+	PublishAsSpecificChannelSlackMessage([]scanner.Report{report}, mockSlackService)
+
+	mockSlackService.AssertExpectations(t)
+	mockSlackService.AssertNumberOfCalls(t, "PostMessage", 1)
 }
 
 func TestFormatSummary(t *testing.T) {

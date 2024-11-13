@@ -16,21 +16,22 @@ import (
 var severityScoreOrder = getSeverityScoreOrder(scanner.SeverityScoreThresholds)
 
 // PublishAsGitlabIssues creates or updates GitLab Issue reports for the given reports
+// It will add the Issue URL to the Report if it was created or updated successfully
 func PublishAsGitlabIssues(reports []scanner.Report, s gitlab.IService) {
 	var wg sync.WaitGroup
-	for _, r := range reports {
+	for i := 0; i < len(reports); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if r.IsVulnerable {
-				if issue, err := s.OpenVulnerabilityIssue(r.Project, formatGitlabIssue(r)); err != nil {
-					log.Error().Err(err).Str("project", r.Project.Name).Msg("Failed to open or update issue")
+			if reports[i].IsVulnerable {
+				if issue, err := s.OpenVulnerabilityIssue(reports[i].Project, formatGitlabIssue(reports[i])); err != nil {
+					log.Error().Err(err).Str("project", reports[i].Project.Name).Msg("Failed to open or update issue")
 				} else {
-					r.IssueUrl = issue.WebURL
+					reports[i].IssueUrl = issue.WebURL
 				}
 			} else {
-				if err := s.CloseVulnerabilityIssue(r.Project); err != nil {
-					log.Error().Err(err).Str("project", r.Project.Name).Msg("Failed to close issue")
+				if err := s.CloseVulnerabilityIssue(reports[i].Project); err != nil {
+					log.Error().Err(err).Str("project", reports[i].Project.Name).Msg("Failed to close issue")
 				}
 			}
 		}()

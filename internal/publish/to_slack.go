@@ -7,14 +7,16 @@ import (
 	"sheriff/internal/slack"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/elliotchance/pie/v2"
+	"github.com/rs/zerolog/log"
 	goslack "github.com/slack-go/slack"
 )
 
-// PublishAsSlackMessage publishes a report of the vulnerabilities scanned to a slack channel
-func PublishAsSlackMessage(channelName string, reports []scanner.Report, groups []string, projects []string, s slack.IService) (err error) {
+// PublishAsGeneralSlackMessage publishes a report of the vulnerabilities scanned to a slack channel
+func PublishAsGeneralSlackMessage(channelName string, reports []scanner.Report, groups []string, projects []string, s slack.IService) (err error) {
 	vulnerableReportsBySeverityKind := groupVulnReportsByMaxSeverityKind(reports)
 
 	summary := formatSummary(vulnerableReportsBySeverityKind, len(reports), groups, projects)
@@ -37,6 +39,76 @@ func PublishAsSlackMessage(channelName string, reports []scanner.Report, groups 
 	}
 
 	return
+}
+
+func PublishAsSpecificChannelSlackMessage(reports []scanner.Report, s slack.IService) {
+	configuredReports := pie.Filter(reports, func(r scanner.Report) bool { return r.ProjectConfig.SlackChannel != "" })
+
+	var wg sync.WaitGroup
+	for _, report := range configuredReports {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			message := formatSpecificChannelSlackMessage(report)
+
+			_, err := s.PostMessage(report.ProjectConfig.SlackChannel, message...)
+			if err != nil {
+				log.Error().Err(err).Str("channel", report.ProjectConfig.SlackChannel).Msg("Failed to post slack report")
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+func formatSpecificChannelSlackMessage(report scanner.Report) []goslack.MsgOption {
+	// Count of vulnerabilities by severity
+	nCritical := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.Critical }))
+	nHigh := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.High }))
+	nModerate := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.Moderate }))
+	nLow := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.Low }))
+	nUnknown := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.Unknown }))
+
+	// Texts
+	title := fmt.Sprintf("Sheriff Report %v", time.Now().Format("2006-01-02"))
+	subtitle := fmt.Sprintf("Project: <%s|*%s*>", report.Project.WebURL, report.Project.PathWithNamespace)
+	var subtitleFullReport string
+	if report.IssueUrl != "" {
+		subtitleFullReport = fmt.Sprintf("Full report: <%s|*Full report*>", report.IssueUrl)
+	} else {
+		subtitleFullReport = "\t_full report unavailable_\t\t"
+	}
+	countsTitle := fmt.Sprintf("*Vulnerability Counts* (total %v)", len(report.Vulnerabilities))
+	criticalCount := fmt.Sprintf("Critical: *%v*", nCritical)
+	highCount := fmt.Sprintf("High: *%v*", nHigh)
+	moderateCount := fmt.Sprintf("Moderate: *%v*", nModerate)
+	lowCount := fmt.Sprintf("Low: *%v*", nLow)
+	unknownCount := fmt.Sprintf("Unknown: *%v*", nUnknown)
+
+	// Slack objects
+	titleBlock := goslack.NewHeaderBlock(goslack.NewTextBlockObject("plain_text", title, true, false))
+	subtitleBlock := goslack.NewContextBlock("subtitle", goslack.NewTextBlockObject("mrkdwn", subtitle, false, false))
+	subtitleCountBlock := goslack.NewContextBlock("subtitleFullReport", goslack.NewTextBlockObject("mrkdwn", subtitleFullReport, false, false))
+	countsTitleBlock := goslack.NewSectionBlock(goslack.NewTextBlockObject("mrkdwn", countsTitle, false, false), nil, nil)
+	countsBlocks := []*goslack.TextBlockObject{
+		goslack.NewTextBlockObject("mrkdwn", criticalCount, false, false),
+		goslack.NewTextBlockObject("mrkdwn", highCount, false, false),
+		goslack.NewTextBlockObject("mrkdwn", moderateCount, false, false),
+		goslack.NewTextBlockObject("mrkdwn", lowCount, false, false),
+		goslack.NewTextBlockObject("mrkdwn", unknownCount, false, false),
+	}
+	countsBlock := goslack.NewSectionBlock(nil, countsBlocks, nil)
+
+	blocks := []goslack.Block{
+		titleBlock,
+		subtitleBlock,
+		subtitleCountBlock,
+		countsTitleBlock,
+		countsBlock,
+	}
+
+	return []goslack.MsgOption{goslack.MsgOptionBlocks(blocks...)}
 }
 
 func formatSubtitleList(entity string, list []string) *goslack.ContextBlock {

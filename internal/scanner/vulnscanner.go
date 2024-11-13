@@ -41,9 +41,14 @@ type Vulnerability struct {
 	FixAvailable      bool
 }
 
+type ProjectConfig struct {
+	SlackChannel string `toml:"slack-channel"`
+}
+
 // Report is the main report representation of a project vulnerability scan.
 type Report struct {
 	Project         gogitlab.Project
+	ProjectConfig   ProjectConfig // Contains the project-level configuration that users of sheriff may have in their repository
 	IsVulnerable    bool
 	Vulnerabilities []Vulnerability
 	IssueUrl        string // URL of the GitLab issue. Conditionally set if --gitlab-issue is passed
