@@ -18,6 +18,7 @@ type service struct {
 	isPublicChannelsEnabled bool
 }
 
+// New creates a new Slack service
 func New(token string, isPublicChannelsEnabled bool, debug bool) (IService, error) {
 	slackClient := slack.New(token, slack.OptionDebug(debug))
 	if slackClient == nil {
@@ -29,6 +30,7 @@ func New(token string, isPublicChannelsEnabled bool, debug bool) (IService, erro
 	return &s, nil
 }
 
+// PostMessage posts a message to the given slack channel
 func (s *service) PostMessage(channelName string, options ...slack.MsgOption) (ts string, err error) {
 	channel, err := s.findSlackChannel(channelName)
 	if err != nil {
@@ -45,6 +47,8 @@ func (s *service) PostMessage(channelName string, options ...slack.MsgOption) (t
 	return
 }
 
+// findSlackChannel finds the slack channel by name.
+// If the channel is not found, it returns an error.
 func (s *service) findSlackChannel(channelName string) (channel *slack.Channel, err error) {
 	var nextCursor string
 	var channels []slack.Channel

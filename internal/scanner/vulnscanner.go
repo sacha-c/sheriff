@@ -1,3 +1,4 @@
+// Package scanner provides vulnerability scanners with a common interface.
 package scanner
 
 import (
@@ -14,7 +15,7 @@ const (
 	Unknown  SeverityScoreKind = "UNKNOWN"
 )
 
-// These thresholds are inferred from CSVSS reports we've seen in the wild.
+// SeverityScoreThresholds are inferred from CSVSS reports we've seen in the wild.
 // The value represents the lower bound (inclusive) of the severity score kind.
 // They may need to be adjusted as we observe more vulnerabilities.
 var SeverityScoreThresholds = map[SeverityScoreKind]float64{
@@ -25,7 +26,7 @@ var SeverityScoreThresholds = map[SeverityScoreKind]float64{
 	Unknown:  -1.0, // Arbitrary value to represent unknown severity
 }
 
-// Representation of what a vulnerability is within our scanner
+// Vulnerability is a representation of what a vulnerability is within our scanner
 type Vulnerability struct {
 	Id                string
 	PackageName       string

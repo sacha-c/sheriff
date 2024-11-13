@@ -9,14 +9,20 @@ import (
 
 const defaultTimeout = 5 * time.Second
 
-type CommandRunnerInterface interface {
+// commandRunnerInterface is an interface that defines the Run method for running shell commands.
+type commandRunnerInterface interface {
 	Run(in CommandInput) (CommandOutput, error)
 }
+
+// CommandOutput is a struct that contains the output of a shell command
+// and the exit code of the command. If the command was not executed at all,
+// (for instance, due to a timeout), the exit code will be -1.
 type CommandOutput struct {
 	Output   []byte
 	ExitCode int
 }
 
+// CommandInput is a struct that contains the input for a shell command.
 type CommandInput struct {
 	Name    string
 	Args    []string
@@ -27,6 +33,8 @@ type CommandInput struct {
 // It is used to run shell commands, encapsulating the exec.Command function.
 type shellCommandRunner struct{}
 
+// Run runs a shell command with the given input and returns the output and error.
+// If the given CommandInput timeout is 0, it will default to 5 seconds.
 func (c *shellCommandRunner) Run(in CommandInput) (CommandOutput, error) {
 	if in.Timeout == 0 {
 		in.Timeout = defaultTimeout
@@ -53,4 +61,4 @@ func (c *shellCommandRunner) Run(in CommandInput) (CommandOutput, error) {
 }
 
 // ShellCommandRunner is a global variable that is used to run shell commands.
-var ShellCommandRunner CommandRunnerInterface = &shellCommandRunner{}
+var ShellCommandRunner commandRunnerInterface = &shellCommandRunner{}

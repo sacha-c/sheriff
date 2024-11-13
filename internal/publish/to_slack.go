@@ -117,7 +117,7 @@ func formatReportMessage(reportsBySeverityKind map[scanner.SeverityScoreKind][]s
 	return
 }
 
-// Splits a string into chunks of at most maxLen characters
+// splitMessage splits a string into chunks of at most maxLen characters.
 // Each chunk is determined by the closest newline character
 func splitMessage(s string, maxLen int) []string {
 	chunks := make([]string, 0, (len(s)/maxLen)+1)

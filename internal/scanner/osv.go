@@ -49,53 +49,61 @@ type osvAffected struct {
 	Ranges []osvRange `json:"ranges"`
 }
 
+// osvVulnerability represents a vulnerability as defined by the OSV schema.
 type osvVulnerability struct {
-	Id               string              `json:"id"`
-	Aliases          []string            `json:"aliases"`
-	Summary          string              `json:"summary"`
-	Detail           string              `json:"detail"`
-	Version          string              `json:"schema_version"`
-	References       []osvReference      `json:"references"`
-	DatabaseSpecific osvDatabaseSpecific `json:"database_specific"`
-	Affected         []osvAffected       `json:"affected"`
+	Id               string              `json:"id"`                // Unique identifier for the vulnerability.
+	Aliases          []string            `json:"aliases"`           // Alternative identifiers for the vulnerability.
+	Summary          string              `json:"summary"`           // Short summary of the vulnerability.
+	Detail           string              `json:"detail"`            // Detailed description of the vulnerability.
+	Version          string              `json:"schema_version"`    // Schema version used.
+	References       []osvReference      `json:"references"`        // References related to the vulnerability.
+	DatabaseSpecific osvDatabaseSpecific `json:"database_specific"` // Database-specific information.
+	Affected         []osvAffected       `json:"affected"`          // List of affected packages.
 }
 
+// osvGroup represents a group of vulnerabilities.
 type osvGroup struct {
-	Ids         []string `json:"ids"`
-	Aliases     []string `json:"aliases"`
-	MaxSeverity string   `json:"max_severity"`
+	Ids         []string `json:"ids"`          // List of vulnerability IDs in the group.
+	Aliases     []string `json:"aliases"`      // Alternative identifiers for the group.
+	MaxSeverity string   `json:"max_severity"` // Maximum severity of the vulnerabilities in the group.
 }
 
+// osvPackageInfo contains information about a package.
 type osvPackageInfo struct {
-	Name      string `json:"name"`
-	Version   string `json:"version"`
-	Ecosystem string `json:"ecosystem"`
+	Name      string `json:"name"`      // Name of the package.
+	Version   string `json:"version"`   // Version of the package.
+	Ecosystem string `json:"ecosystem"` // Ecosystem to which the package belongs.
 }
 
+// osvPackage represents a package and its associated vulnerabilities and groups.
 type osvPackage struct {
-	PackageInfo     osvPackageInfo     `json:"package"`
-	Vulnerabilities []osvVulnerability `json:"vulnerabilities"`
-	Groups          []osvGroup         `json:"groups"`
+	PackageInfo     osvPackageInfo     `json:"package"`         // Information about the package.
+	Vulnerabilities []osvVulnerability `json:"vulnerabilities"` // List of vulnerabilities associated with the package.
+	Groups          []osvGroup         `json:"groups"`          // List of groups associated with the package.
 }
 
+// osvResult represents the result of a vulnerability scan.
 type osvResult struct {
-	Source   osvSource    `json:"source"`
-	Packages []osvPackage `json:"packages"`
+	Source   osvSource    `json:"source"`   // Source of the vulnerability information.
+	Packages []osvPackage `json:"packages"` // List of packages in the result.
 }
 
-// Vulnerability report as returned by osv-scanner
+// OsvReport represents a vulnerability report as returned by osv-scanner.
 type OsvReport struct {
-	Results []osvResult `json:"results"`
+	Results []osvResult `json:"results"` // List of results in the report.
 }
 
 // osvScanner is a concrete implementation of the VulnScanner interface
 // that uses Google's osv-scanner to scan for vulnerabilities in a project directory.
 type osvScanner struct{}
 
+// NewOsvScanner creates a new instance of osvScanner.
+// It is a vulnScanner that uses Google's osv-scanner to scan for vulnerabilities.
 func NewOsvScanner() VulnScanner[OsvReport] {
 	return &osvScanner{}
 }
 
+// Scan scans the specified directory for vulnerabilities using osv-scanner.
 func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
 	var report *OsvReport
 
@@ -127,6 +135,7 @@ func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
 	return report, nil
 }
 
+// GenerateReport generates a Report struct from the OsvReport.
 func (s *osvScanner) GenerateReport(p *gogitlab.Project, r *OsvReport) Report {
 	if r == nil {
 		return Report{

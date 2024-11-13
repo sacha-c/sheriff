@@ -1,3 +1,4 @@
+// Package patrol provides a service to scan GitLab groups for vulnerabilities and publish reports.
 package patrol
 
 import (
@@ -26,7 +27,6 @@ type securityPatroller interface {
 }
 
 // sheriffService is the implementation of the SecurityPatroller interface.
-// It contains the main "loop" logic of this tool.
 type sheriffService struct {
 	gitlabService gitlab.IService
 	slackService  slack.IService
@@ -34,6 +34,9 @@ type sheriffService struct {
 	osvService    scanner.VulnScanner[scanner.OsvReport]
 }
 
+// New creates a new securityPatroller service.
+// It contains the main "loop" logic of this tool.
+// A "patrol" is defined as scanning GitLab groups for vulnerabilities and publishing reports where needed.
 func New(gitlabService gitlab.IService, slackService slack.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) securityPatroller {
 	return &sheriffService{
 		gitlabService: gitlabService,
@@ -43,6 +46,7 @@ func New(gitlabService gitlab.IService, slackService slack.IService, gitService 
 	}
 }
 
+// Patrol scans a given GitLab group path, creates and publishes the necessary reports.
 func (s *sheriffService) Patrol(groupPath string, gitlabIssue bool, slackChannel string, printReport bool, verbose bool) error {
 	if err := validateGroupPath(groupPath); err != nil {
 		return errors.Join(fmt.Errorf("failed to validate group path %v", groupPath), err)

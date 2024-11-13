@@ -38,6 +38,8 @@ func PublishAsGitlabIssues(reports []scanner.Report, s gitlab.IService) {
 	wg.Wait()
 }
 
+// severityBiggerThan compares two CVSS scores and returns true if a is bigger than b
+// It will fallback to string comparison if it fails to parse the CVSS scores
 func severityBiggerThan(a string, b string) bool {
 	aFloat, errA := strconv.ParseFloat(a, 32)
 	bFloat, errB := strconv.ParseFloat(b, 32)
@@ -77,6 +79,8 @@ func formatGitlabIssue(r scanner.Report) (mdReport string) {
 	return
 }
 
+// formatGitlabIssueTable formats a group of vulnerabilities as a markdown table
+// for the GitLab issue report
 func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (md string) {
 	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
 	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
@@ -96,6 +100,7 @@ func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (md s
 	return
 }
 
+// markdownBoolean returns a markdown emoji for a boolean value
 func markdownBoolean(b bool) string {
 	if b {
 		return "✅"
