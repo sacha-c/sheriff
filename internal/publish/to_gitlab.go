@@ -72,7 +72,7 @@ func formatGitlabIssue(r scanner.Report) (mdReport string) {
 			sortedVulnsInGroup := pie.SortUsing(group, func(a, b scanner.Vulnerability) bool {
 				return severityBiggerThan(a.Severity, b.Severity)
 			})
-			mdReport += formatGitlabIssueTable(string(groupName), &sortedVulnsInGroup)
+			mdReport += formatGitlabIssueTable(string(groupName), sortedVulnsInGroup)
 		}
 	}
 
@@ -81,10 +81,10 @@ func formatGitlabIssue(r scanner.Report) (mdReport string) {
 
 // formatGitlabIssueTable formats a group of vulnerabilities as a markdown table
 // for the GitLab issue report
-func formatGitlabIssueTable(groupName string, vs *[]scanner.Vulnerability) (md string) {
+func formatGitlabIssueTable(groupName string, vs []scanner.Vulnerability) (md string) {
 	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
 	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
-	for _, vuln := range *vs {
+	for _, vuln := range vs {
 		md += fmt.Sprintf(
 			"| %v | %v | %v | %v | %v | %v | %v |\n",
 			fmt.Sprintf("https://osv.dev/%s", vuln.Id),
