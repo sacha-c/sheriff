@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/xanzy/go-gitlab"
 )
 
 // Severities are grouped by severity score kind
@@ -137,4 +139,46 @@ func TestMarkdownBoolean(t *testing.T) {
 			assert.Equal(t, want, got)
 		})
 	}
+}
+
+func TestPublishAsGitlabIssues(t *testing.T) {
+	mockGitlabService := &mockGitlabService{}
+	mockGitlabService.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&gitlab.Issue{WebURL: "https://my-issue.com"}, nil)
+	reports := []scanner.Report{
+		{
+			IsVulnerable: true,
+			Vulnerabilities: []scanner.Vulnerability{
+				{
+					Id: "test1",
+				},
+			},
+		},
+	}
+
+	PublishAsGitlabIssues(reports, mockGitlabService)
+	mockGitlabService.AssertExpectations(t)
+
+	t.Run("FillsTheIssueUrl", func(t *testing.T) {
+		assert.Equal(t, "https://my-issue.com", reports[0].IssueUrl)
+	})
+
+}
+
+type mockGitlabService struct {
+	mock.Mock
+}
+
+func (c *mockGitlabService) GetProjectList(groupPaths []string, projectPaths []string) ([]gitlab.Project, error) {
+	args := c.Called(groupPaths, projectPaths)
+	return args.Get(0).([]gitlab.Project), args.Error(1)
+}
+
+func (c *mockGitlabService) CloseVulnerabilityIssue(project gitlab.Project) error {
+	args := c.Called(project)
+	return args.Error(0)
+}
+
+func (c *mockGitlabService) OpenVulnerabilityIssue(project gitlab.Project, report string) (*gitlab.Issue, error) {
+	args := c.Called(project, report)
+	return args.Get(0).(*gitlab.Issue), args.Error(1)
 }
