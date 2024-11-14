@@ -54,6 +54,11 @@ func (s *sheriffService) Patrol(groupPaths []string, projectPaths []string, gitl
 		return errors.Join(errors.New("failed to scan projects"), err)
 	}
 
+	if len(scanReports) == 0 {
+		log.Warn().Msg("No reports found. Check if projects and group paths are correct, and check the logs for any earlier errors.")
+		return nil
+	}
+
 	if gitlabIssue {
 		log.Info().Msg("Creating issue in affected projects")
 		publish.PublishAsGitlabIssues(scanReports, s.gitlabService)

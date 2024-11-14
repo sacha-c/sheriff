@@ -21,7 +21,6 @@ func TestScanNoProjects(t *testing.T) {
 	mockGitlabService.On("GetProjectList", []string{"group/to/scan"}, []string{}).Return([]gitlab.Project{}, nil)
 
 	mockSlackService := &mockSlackService{}
-	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
 
 	mockGitService := &mockGitService{}
 	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
