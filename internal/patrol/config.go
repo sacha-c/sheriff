@@ -6,6 +6,8 @@ import (
 	"sheriff/internal/scanner"
 
 	"github.com/BurntSushi/toml"
+	"github.com/elliotchance/pie/v2"
+	"github.com/rs/zerolog/log"
 )
 
 func getConfiguration(filename string) (config scanner.ProjectConfig, found bool, err error) {
@@ -15,9 +17,15 @@ func getConfiguration(filename string) (config scanner.ProjectConfig, found bool
 		return config, false, errors.Join(errors.New("unexpected error when attempting to get project configuration"), err)
 	}
 
-	_, err = toml.DecodeFile(filename, &config)
+	m, err := toml.DecodeFile(filename, &config)
 	if err != nil {
 		return config, true, errors.Join(errors.New("failed to decode project configuration"), err)
+	}
+
+	if undecoded := m.Undecoded(); len(undecoded) > 0 {
+		keys := pie.Map(undecoded, func(u toml.Key) string { return u.String() })
+
+		log.Warn().Strs("keys", keys).Msg("Found undecoded keys in project configuration")
 	}
 
 	return config, true, nil
