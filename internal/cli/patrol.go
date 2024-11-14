@@ -42,6 +42,8 @@ const publicSlackChannelFlag = "public-slack-channel"
 const gitlabTokenFlag = "gitlab-token"
 const slackTokenFlag = "slack-token"
 
+var sensitiveFlags = []string{gitlabTokenFlag, slackTokenFlag}
+
 var PatrolFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:  configFlag,

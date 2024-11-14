@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sheriff/internal/log"
+	"slices"
 
 	zerolog "github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -49,4 +50,25 @@ func GetConfigFileLoader(flags []cli.Flag, fileNameFlag string) cli.BeforeFunc {
 			return errors.Join(fmt.Errorf("failed to stat config file %s", fileName), err)
 		}
 	}
+}
+
+func LogArguments(cCtx *cli.Context) error {
+	flags := cCtx.FlagNames()
+
+	flagList := make([]string, 0, len(flags))
+
+	for _, flag := range flags {
+		val := cCtx.Value(flag)
+		if slices.Contains(sensitiveFlags, flag) {
+			val = "REDACTED"
+		} else if sliceVal, ok := val.(cli.StringSlice); ok {
+			val = sliceVal.String()
+		}
+
+		flagList = append(flagList, fmt.Sprintf("%s=%v", flag, val))
+	}
+
+	zerolog.Info().Strs("arguments", flagList).Msg("Running with configuration")
+
+	return nil
 }

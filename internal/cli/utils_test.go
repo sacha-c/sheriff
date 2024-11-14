@@ -65,3 +65,14 @@ func TestConfigFileLoaderNoFile(t *testing.T) {
 
 	assert.Nil(t, err)
 }
+
+func TestLogArguments(t *testing.T) {
+	flag := flag.NewFlagSet("flag", flag.ContinueOnError)
+	flag.String("some-flag", "", "")
+	flag.Set("some-flag", "value")
+	context := cli.NewContext(nil, flag, nil)
+
+	LogArguments(context)
+
+	// How to assert that the log message was correct?
+}

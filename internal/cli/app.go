@@ -9,7 +9,7 @@ func App(args []string) {
 	app := &cli.App{
 		Name:    "sheriff",
 		Usage:   "Fighting dangerous dangerous dependencies since 2024.",
-		Version: "0.17.3",
+		Version: "0.19.3",
 		Commands: []*cli.Command{
 			{
 				Name:  "patrol",
@@ -22,7 +22,7 @@ This file is formatted in TOML and can contain any of the flags that can be set 
 `,
 				Flags:  PatrolFlags,
 				Action: PatrolAction,
-				Before: CombineBeforeFuncs(ConfigureLogs, GetConfigFileLoader(PatrolFlags, configFlag)),
+				Before: CombineBeforeFuncs(ConfigureLogs, GetConfigFileLoader(PatrolFlags, configFlag), LogArguments),
 			},
 		},
 	}
