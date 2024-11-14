@@ -30,7 +30,7 @@ func TestScanNoProjects(t *testing.T) {
 
 	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
-	err := svc.Patrol([]string{"group/to/scan"}, []string{}, true, "channel", false, false)
+	err := svc.Patrol([]string{"group/to/scan"}, []string{}, true, "channel", true, false, false)
 
 	assert.Nil(t, err)
 	mockGitlabService.AssertExpectations(t)
@@ -54,7 +54,7 @@ func TestScanNonVulnerableProject(t *testing.T) {
 
 	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
-	err := svc.Patrol([]string{"group/to/scan"}, []string{}, true, "channel", false, false)
+	err := svc.Patrol([]string{"group/to/scan"}, []string{}, true, "channel", true, false, false)
 
 	assert.Nil(t, err)
 	mockGitlabService.AssertExpectations(t)
@@ -86,7 +86,7 @@ func TestScanVulnerableProject(t *testing.T) {
 
 	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
 
-	err := svc.Patrol([]string{"group/to/scan"}, []string{}, true, "channel", false, false)
+	err := svc.Patrol([]string{"group/to/scan"}, []string{}, true, "channel", true, false, false)
 
 	assert.Nil(t, err)
 	mockGitlabService.AssertExpectations(t)

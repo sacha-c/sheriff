@@ -36,6 +36,7 @@ const testingFlag = "testing"
 const groupsFlag = "gitlab-groups"
 const projectsFlag = "gitlab-projects"
 const reportSlackChannelFlag = "report-slack-channel"
+const reportSlackProjectChannelFlag = "report-slack-project-channel"
 const reportGitlabFlag = "report-gitlab-issue"
 const reportStdoutFlag = "report-stdout"
 const publicSlackChannelFlag = "public-slack-channel"
@@ -76,6 +77,11 @@ var PatrolFlags = []cli.Flag{
 	altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     reportSlackChannelFlag,
 		Usage:    "Enable reporting to Slack through messages in the specified channel.",
+		Category: string(Reporting),
+	}),
+	altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     reportSlackProjectChannelFlag,
+		Usage:    "Enable reporting to Slack through messages in the specified project's channel. Requires a project-level configuration file specifying the channel.",
 		Category: string(Reporting),
 	}),
 	altsrc.NewBoolFlag(&cli.BoolFlag{
@@ -143,6 +149,7 @@ func PatrolAction(cCtx *cli.Context) error {
 		cCtx.StringSlice(projectsFlag),
 		cCtx.Bool(reportGitlabFlag),
 		cCtx.String(reportSlackChannelFlag),
+		cCtx.Bool(publicSlackChannelFlag),
 		cCtx.Bool(reportStdoutFlag),
 		verbose,
 	); err != nil {
