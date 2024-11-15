@@ -93,6 +93,38 @@ func TestScanVulnerableProject(t *testing.T) {
 	mockSlackService.AssertExpectations(t)
 }
 
+func TestMarkVulnsAsAcknowledgedInReport(t *testing.T) {
+	report := scanner.Report{
+		Vulnerabilities: []scanner.Vulnerability{
+			{
+				Id:                "CVE-1",
+				SeverityScoreKind: scanner.Critical,
+			},
+
+			{
+				Id:                "CVE-2",
+				SeverityScoreKind: scanner.Critical,
+			},
+		},
+	}
+	config := scanner.ProjectConfig{
+		Acknowledged: []scanner.AcknowledgedVuln{
+			{
+				Code: "CVE-1",
+			},
+
+			{
+				Code: "CVE-3", // not in report
+			},
+		},
+	}
+
+	markVulnsAsAcknowledgedInReport(&report, config)
+
+	assert.Equal(t, report.Vulnerabilities[0].SeverityScoreKind, scanner.Acknowledged)
+	assert.Equal(t, report.Vulnerabilities[1].SeverityScoreKind, scanner.Critical)
+}
+
 type mockGitlabService struct {
 	mock.Mock
 }

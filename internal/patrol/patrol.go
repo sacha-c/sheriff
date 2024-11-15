@@ -166,5 +166,23 @@ func (s *sheriffService) scanProject(project gogitlab.Project) (report *scanner.
 
 	r.ProjectConfig = config
 
+	markVulnsAsAcknowledgedInReport(&r, config)
 	return &r, nil
+}
+
+// markVulnsAsAcknowledgedInReport marks vulnerabilities as acknowledged in the report
+// if the user has acknowledged them in the project configuration.
+// It modifies the given report in place.
+func markVulnsAsAcknowledgedInReport(report *scanner.Report, config scanner.ProjectConfig) {
+	ackCodes := make(map[string]bool, len(config.Acknowledged))
+	for _, ack := range config.Acknowledged {
+		ackCodes[ack.Code] = true
+	}
+
+	for i, v := range report.Vulnerabilities {
+		if _, ok := ackCodes[v.Id]; ok {
+			// We override the severity kind
+			report.Vulnerabilities[i].SeverityScoreKind = scanner.Acknowledged
+		}
+	}
 }

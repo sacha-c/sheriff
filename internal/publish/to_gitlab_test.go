@@ -36,6 +36,17 @@ func TestFormatGitlabIssue(t *testing.T) {
 			Details:           "test",
 		},
 		{
+			Id:                "test4",
+			PackageName:       "name",
+			PackageVersion:    "version",
+			PackageEcosystem:  "ecosystem",
+			Source:            "test",
+			Severity:          "0.00",
+			SeverityScoreKind: scanner.Acknowledged,
+			Summary:           "test",
+			Details:           "test",
+		},
+		{
 			Id:                "test3",
 			PackageName:       "name",
 			PackageVersion:    "version",
@@ -67,6 +78,11 @@ func TestFormatGitlabIssue(t *testing.T) {
 | OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
 | --- | --- | --- | --- | --- | --- | --- |
 | https://osv.dev/test2 | 0.00 | ecosystem | name | version | ❌ | test |
+
+## Severity: ACKNOWLEDGED
+| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| https://osv.dev/test4 | 0.00 | ecosystem | name | version | ❌ | test |
 `
 
 	assert.NotEmpty(t, got)

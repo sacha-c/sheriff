@@ -17,6 +17,8 @@ func TestGetConfiguration(t *testing.T) {
 		{"testdata/valid.toml", true, false, scanner.ProjectConfig{SlackChannel: "the-devils-slack-channel"}},
 		{"testdata/invalid.toml", true, true, scanner.ProjectConfig{}},
 		{"testdata/nonexistent.toml", false, false, scanner.ProjectConfig{}},
+		{"testdata/valid_with_ack.toml", true, false, scanner.ProjectConfig{Acknowledged: []scanner.AcknowledgedVuln{{Code: "CSV111", Reason: "not relevant"}, {Code: "CSV222", Reason: ""}}}},
+		{"testdata/valid_with_ack_alt.toml", true, false, scanner.ProjectConfig{Acknowledged: []scanner.AcknowledgedVuln{{Code: "CSV111", Reason: "not relevant"}, {Code: "CSV222", Reason: ""}}}},
 	}
 
 	for _, tc := range testCases {

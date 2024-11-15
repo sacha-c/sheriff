@@ -69,6 +69,7 @@ func formatSpecificChannelSlackMessage(report scanner.Report) []goslack.MsgOptio
 	nModerate := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.Moderate }))
 	nLow := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.Low }))
 	nUnknown := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.Unknown }))
+	nAck := len(pie.Filter(report.Vulnerabilities, func(v scanner.Vulnerability) bool { return v.SeverityScoreKind == scanner.Acknowledged }))
 
 	// Texts
 	title := fmt.Sprintf("Sheriff Report %v", time.Now().Format("2006-01-02"))
@@ -85,6 +86,7 @@ func formatSpecificChannelSlackMessage(report scanner.Report) []goslack.MsgOptio
 	moderateCount := fmt.Sprintf("Moderate: *%v*", nModerate)
 	lowCount := fmt.Sprintf("Low: *%v*", nLow)
 	unknownCount := fmt.Sprintf("Unknown: *%v*", nUnknown)
+	ackCount := fmt.Sprintf("Acknowledged: *%v*", nAck)
 
 	// Slack objects
 	titleBlock := goslack.NewHeaderBlock(goslack.NewTextBlockObject("plain_text", title, true, false))
@@ -97,6 +99,7 @@ func formatSpecificChannelSlackMessage(report scanner.Report) []goslack.MsgOptio
 		goslack.NewTextBlockObject("mrkdwn", moderateCount, false, false),
 		goslack.NewTextBlockObject("mrkdwn", lowCount, false, false),
 		goslack.NewTextBlockObject("mrkdwn", unknownCount, false, false),
+		goslack.NewTextBlockObject("mrkdwn", ackCount, false, false),
 	}
 	countsBlock := goslack.NewSectionBlock(nil, countsBlocks, nil)
 

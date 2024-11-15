@@ -1,0 +1,4 @@
+acknowledged = [
+    { code = "CSV111", reason = "not relevant" },
+    { code = "CSV222" },
+]

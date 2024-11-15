@@ -8,22 +8,24 @@ import (
 type SeverityScoreKind string
 
 const (
-	Critical SeverityScoreKind = "CRITICAL"
-	High     SeverityScoreKind = "HIGH"
-	Moderate SeverityScoreKind = "MODERATE"
-	Low      SeverityScoreKind = "LOW"
-	Unknown  SeverityScoreKind = "UNKNOWN"
+	Critical     SeverityScoreKind = "CRITICAL"
+	High         SeverityScoreKind = "HIGH"
+	Moderate     SeverityScoreKind = "MODERATE"
+	Low          SeverityScoreKind = "LOW"
+	Unknown      SeverityScoreKind = "UNKNOWN"
+	Acknowledged SeverityScoreKind = "ACKNOWLEDGED"
 )
 
 // SeverityScoreThresholds are inferred from CSVSS reports we've seen in the wild.
 // The value represents the lower bound (inclusive) of the severity score kind.
 // They may need to be adjusted as we observe more vulnerabilities.
 var SeverityScoreThresholds = map[SeverityScoreKind]float64{
-	Critical: 9.0,
-	High:     8.0,
-	Moderate: 3.0,
-	Low:      0.0,
-	Unknown:  -1.0, // Arbitrary value to represent unknown severity
+	Critical:     9.0,
+	High:         8.0,
+	Moderate:     3.0,
+	Low:          0.0,
+	Unknown:      -1.0, // Arbitrary value to represent unknown severity
+	Acknowledged: -2.0, // Arbitrary value to represent acknowledged vulnerabilities
 }
 
 // Vulnerability is a representation of what a vulnerability is within our scanner
@@ -41,8 +43,14 @@ type Vulnerability struct {
 	FixAvailable      bool
 }
 
+type AcknowledgedVuln struct {
+	Code   string `toml:"code"`
+	Reason string `toml:"reason"`
+}
+
 type ProjectConfig struct {
-	SlackChannel string `toml:"slack-channel"`
+	SlackChannel string             `toml:"slack-channel"`
+	Acknowledged []AcknowledgedVuln `toml:"acknowledged"`
 }
 
 // Report is the main report representation of a project vulnerability scan.
