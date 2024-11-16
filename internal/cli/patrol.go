@@ -38,7 +38,7 @@ const projectsFlag = "gitlab-projects"
 const reportSlackChannelFlag = "report-slack-channel"
 const reportSlackProjectChannelFlag = "report-slack-project-channel"
 const reportGitlabFlag = "report-gitlab-issue"
-const reportStdoutFlag = "report-stdout"
+const silentReport = "silent"
 const publicSlackChannelFlag = "public-slack-channel"
 const gitlabTokenFlag = "gitlab-token"
 const slackTokenFlag = "slack-token"
@@ -91,8 +91,8 @@ var PatrolFlags = []cli.Flag{
 		Value:    false,
 	}),
 	altsrc.NewBoolFlag(&cli.BoolFlag{
-		Name:     reportStdoutFlag,
-		Usage:    "Enable reporting to stdout.",
+		Name:     silentReport,
+		Usage:    "Disable report output to stdout.",
 		Category: string(Reporting),
 		Value:    false,
 	}),
@@ -150,7 +150,7 @@ func PatrolAction(cCtx *cli.Context) error {
 		cCtx.Bool(reportGitlabFlag),
 		cCtx.String(reportSlackChannelFlag),
 		cCtx.Bool(publicSlackChannelFlag),
-		cCtx.Bool(reportStdoutFlag),
+		cCtx.Bool(silentReport),
 		verbose,
 	); err != nil {
 		return errors.Join(errors.New("failed to scan"), err)

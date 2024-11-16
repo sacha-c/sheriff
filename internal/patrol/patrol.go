@@ -24,7 +24,7 @@ const projectConfigFileName = "sheriff.toml"
 // securityPatroller is the interface of the main security scanner service of this tool.
 type securityPatroller interface {
 	// Scans the given Gitlab groups and projects, creates and publishes the necessary reports
-	Patrol(groupPaths []string, projectPaths []string, gitlabIssue bool, slackChannel string, reportProjectSlack bool, printReport bool, verbose bool) error
+	Patrol(grouiPaths []string, projectPaths []string, gitlabIssue bool, slackChannel string, reportProjectSlack bool, silentReport bool, verbose bool) error
 }
 
 // sheriffService is the implementation of the SecurityPatroller interface.
@@ -48,7 +48,7 @@ func New(gitlabService gitlab.IService, slackService slack.IService, gitService 
 }
 
 // Patrol scans the given Gitlab groups and projects, creates and publishes the necessary reports.
-func (s *sheriffService) Patrol(groupPaths []string, projectPaths []string, gitlabIssue bool, slackChannel string, reportProjectSlack bool, printReport bool, verbose bool) error {
+func (s *sheriffService) Patrol(groupPaths []string, projectPaths []string, gitlabIssue bool, slackChannel string, reportProjectSlack bool, silentReport bool, verbose bool) error {
 	scanReports, err := s.scanAndGetReports(groupPaths, projectPaths)
 	if err != nil {
 		return errors.Join(errors.New("failed to scan projects"), err)
@@ -79,7 +79,7 @@ func (s *sheriffService) Patrol(groupPaths []string, projectPaths []string, gitl
 		}
 	}
 
-	publish.PublishToConsole(scanReports, printReport)
+	publish.PublishToConsole(scanReports, silentReport)
 
 	return nil
 }

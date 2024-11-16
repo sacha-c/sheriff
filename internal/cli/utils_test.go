@@ -39,7 +39,7 @@ func (m *mockBeforeFuncs) Func2(cCtx *cli.Context) error {
 func TestConfigureLogs(t *testing.T) {
 	testCases := map[bool]zerolog.Level{
 		true:  zerolog.DebugLevel,
-		false: zerolog.InfoLevel,
+		false: zerolog.WarnLevel,
 	}
 
 	for input, want := range testCases {

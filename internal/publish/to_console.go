@@ -9,13 +9,13 @@ import (
 )
 
 // PublishToConsole prints reports to the terminal console.
-// Log message is printed as INFO if printInfo is true, DEBUG otherwise.
-func PublishToConsole(scanReports []scanner.Report, printInfo bool) {
+// If silentReport is true, the report will be logged as debug instead of printed to the console.
+func PublishToConsole(scanReports []scanner.Report, silentReport bool) {
 	r := formatReportsMessageForConsole(scanReports)
-	if printInfo {
-		log.Info().Msg(r)
+	if silentReport {
+		log.Debug().Str("report", r)
 	} else {
-		log.Debug().Msg(r)
+		fmt.Println(r)
 	}
 }
 

@@ -11,7 +11,7 @@ func ConfigureLogs(verbose bool) {
 	// UNIX Time is faster and smaller than most timestamps
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	zerolog.SetGlobalLevel(zerolog.WarnLevel)
 	if verbose {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
