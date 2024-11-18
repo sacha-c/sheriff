@@ -1,8 +1,0 @@
-
-Vulnerability Report:
-Total number of projects scanned: 1
----------------------------------
-namespace/sandbox/django-skeleton-ec2-deployment
-	Project URL: https://gitlab.com/namespace/sandbox/django-skeleton-ec2-deployment
-	Number of vulnerabilities: 4
-
