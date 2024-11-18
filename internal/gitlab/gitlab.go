@@ -15,7 +15,7 @@ const VulnerabilityIssueTitle = "Sheriff - 🚨 Vulnerability report"
 
 // IService is the interface of the GitLab service as needed by sheriff
 type IService interface {
-	GetProjectList(groupPaths []string, projectPaths []string) ([]gitlab.Project, error)
+	GetProjectList(groupPaths []string, projectPaths []string) (projects []gitlab.Project, warn error)
 	CloseVulnerabilityIssue(project gitlab.Project) error
 	OpenVulnerabilityIssue(project gitlab.Project, report string) (*gitlab.Issue, error)
 }
@@ -36,20 +36,20 @@ func New(gitlabToken string) (IService, error) {
 	return &s, nil
 }
 
-func (s *service) GetProjectList(groupPaths []string, projectPaths []string) (projects []gitlab.Project, err error) {
-	projects, err = s.gatherProjects(projectPaths)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to fetch projects")
-		err = nil
+func (s *service) GetProjectList(groupPaths []string, projectPaths []string) (projects []gitlab.Project, warn error) {
+	projects, pwarn := s.gatherProjects(projectPaths)
+	if pwarn != nil {
+		pwarn = errors.Join(errors.New("errors occured when gathering projects"), pwarn)
+		warn = errors.Join(pwarn, warn)
 	}
 
-	groupsProjects, err := s.gatherGroupsProjects(groupPaths)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to fetch projects from groups")
-		err = nil
-	} else {
-		projects = append(projects, groupsProjects...)
+	groupsProjects, gpwarn := s.gatherGroupsProjects(groupPaths)
+	if gpwarn != nil {
+		gpwarn = errors.Join(errors.New("errors occured when gathering groups projects"), gpwarn)
+		warn = errors.Join(gpwarn, warn)
 	}
+
+	projects = append(projects, groupsProjects...)
 
 	// Filter unique projects -- there may be duplicates between groups, other groups and projects
 	projects = filterUniqueProjects(projects)
@@ -57,7 +57,7 @@ func (s *service) GetProjectList(groupPaths []string, projectPaths []string) (pr
 	projectsNamespaces := pie.Map(projects, func(p gitlab.Project) string { return p.PathWithNamespace })
 	log.Info().Strs("projects", projectsNamespaces).Msg("Projects to scan")
 
-	return
+	return projects, warn
 }
 
 // CloseVulnerabilityIssue closes the vulnerability issue for the given project
@@ -160,11 +160,10 @@ func (s *service) getProject(path string) (*gitlab.Project, error) {
 		return nil, errors.Join(fmt.Errorf("failed to fetch group %v", groupPath), err)
 	}
 
-	projects, err := s.listGroupProjects(group.ID)
-	if err != nil {
+	projects, _, lgerr := s.listGroupProjects(group.ID)
+	if lgerr != nil {
 		return nil, errors.Join(fmt.Errorf("failed to fetch list of projects like %v", path), err)
 	}
-
 	for _, project := range projects {
 		if project.PathWithNamespace == path {
 			return &project, nil
@@ -174,35 +173,41 @@ func (s *service) getProject(path string) (*gitlab.Project, error) {
 	return nil, fmt.Errorf("project %v not found", path)
 }
 
-func (s *service) gatherGroupsProjects(groupPaths []string) (projects []gitlab.Project, err error) {
+func (s *service) gatherGroupsProjects(groupPaths []string) (projects []gitlab.Project, warn error) {
 	for _, groupPath := range groupPaths {
-		group, err := s.getGroup(groupPath)
-		if err != nil {
-			log.Error().Err(err).Str("group", groupPath).Msg("Failed to fetch group")
-			err = nil
+		group, gerr := s.getGroup(groupPath)
+		if gerr != nil {
+			log.Error().Err(gerr).Str("group", groupPath).Msg("Failed to fetch group")
+			gerr = errors.Join(fmt.Errorf("failed to fetch group %v", groupPath), gerr)
+			warn = errors.Join(gerr, warn)
 			continue
 		}
 
-		groupProjects, err := s.listGroupProjects(group.ID)
-		if err != nil {
-			log.Error().Err(err).Str("group", groupPath).Msg("Failed to fetch projects of group")
-			err = nil
-			continue
-		}
+		if groupProjects, gpwarn, gperr := s.listGroupProjects(group.ID); gperr != nil {
+			log.Error().Err(gpwarn).Str("group", groupPath).Msg("Failed to fetch projects of group")
+			gperr = errors.Join(fmt.Errorf("failed to fetch projects of group %v", groupPath), gperr)
+			warn = errors.Join(gperr, warn)
+		} else if gpwarn != nil {
+			gpwarn = errors.Join(fmt.Errorf("failed to fetch projects of group %v", groupPath), gpwarn)
+			warn = errors.Join(gpwarn, warn)
 
-		projects = append(projects, groupProjects...)
+			projects = append(projects, groupProjects...)
+		} else {
+			projects = append(projects, groupProjects...)
+		}
 	}
 
 	return
 }
 
-func (s *service) gatherProjects(projectPaths []string) (projects []gitlab.Project, err error) {
+func (s *service) gatherProjects(projectPaths []string) (projects []gitlab.Project, warn error) {
 	for _, projectPath := range projectPaths {
 		log.Info().Str("project", projectPath).Msg("Getting project")
 		p, err := s.getProject(projectPath)
 		if err != nil {
 			log.Error().Err(err).Str("project", projectPath).Msg("Failed to fetch project")
-			err = nil
+			err = errors.Join(fmt.Errorf("failed to fetch project %v", projectPath), err)
+			warn = errors.Join(err, warn)
 			continue
 		}
 
@@ -230,7 +235,7 @@ func (s *service) getVulnerabilityIssue(project gitlab.Project) (issue *gitlab.I
 }
 
 // listGroupProjects returns the list of projects for the given group ID
-func (s *service) listGroupProjects(groupID int) (projects []gitlab.Project, err error) {
+func (s *service) listGroupProjects(groupID int) (projects []gitlab.Project, warn error, err error) {
 	projectPtrs, response, err := s.client.ListGroupProjects(groupID,
 		&gitlab.ListGroupProjectsOptions{
 			Archived:         gitlab.Ptr(false),
@@ -242,18 +247,19 @@ func (s *service) listGroupProjects(groupID int) (projects []gitlab.Project, err
 			},
 		})
 	if err != nil {
-		return projects, errors.Join(errors.New("failed to fetch list of projects"), err)
+		return nil, nil, errors.Join(errors.New("failed to fetch list of projects"), err)
 	}
 
 	projects, errCount := dereferenceProjectsPointers(projectPtrs)
 	if errCount > 0 {
-		log.Error().Int("groupID", groupID).Int("count", errCount).Msg("Found nil projects, skipping them.")
+		log.Warn().Int("groupID", groupID).Int("count", errCount).Msg("Found nil projects, skipping them.")
 	}
 
 	if response.TotalPages > 1 {
-		nextProjects, err := s.listGroupNextProjects(groupID, response.TotalPages)
-		if err != nil {
-			return nil, err
+		nextProjects, lgwarn := s.listGroupNextProjects(groupID, response.TotalPages)
+		if lgwarn != nil {
+			lgwarn = errors.Join(errors.New("errors occured when fetching next pages"), lgwarn)
+			warn = errors.Join(lgwarn, warn)
 		}
 
 		projects = append(projects, nextProjects...)
@@ -262,10 +268,20 @@ func (s *service) listGroupProjects(groupID int) (projects []gitlab.Project, err
 	return
 }
 
+func ToChan[T any](s []T) <-chan T {
+	ch := make(chan T, len(s))
+	for _, e := range s {
+		ch <- e
+	}
+	close(ch)
+	return ch
+}
+
 // listGroupNextProjects returns the list of projects for the given group ID from the next pages
-func (s *service) listGroupNextProjects(groupID int, totalPages int) (projects []gitlab.Project, err error) {
+func (s *service) listGroupNextProjects(groupID int, totalPages int) (projects []gitlab.Project, warn error) {
 	var wg sync.WaitGroup
 	nextProjectsChan := make(chan []gitlab.Project, totalPages)
+	warnChan := make(chan error, totalPages)
 	for p := 2; p <= totalPages; p++ {
 		wg.Add(1)
 
@@ -284,11 +300,12 @@ func (s *service) listGroupNextProjects(groupID int, totalPages int) (projects [
 				})
 			if err != nil {
 				log.Error().Err(err).Int("groupID", groupID).Int("page", p).Msg("Failed to fetch projects of next page, these projects will be missing.")
+				warnChan <- err
 			}
 
 			projects, errCount := dereferenceProjectsPointers(projectPtrs)
 			if errCount > 0 {
-				log.Error().Int("groupID", groupID).Int("page", p).Int("count", errCount).Msg("Found nil projects, skipping them.")
+				log.Warn().Int("groupID", groupID).Int("page", p).Int("count", errCount).Msg("Found nil projects, skipping them.")
 			}
 
 			nextProjectsChan <- projects
@@ -296,10 +313,16 @@ func (s *service) listGroupNextProjects(groupID int, totalPages int) (projects [
 	}
 	wg.Wait()
 	close(nextProjectsChan)
+	close(warnChan)
 
 	// Collect projects
 	for nextProjects := range nextProjectsChan {
 		projects = append(projects, nextProjects...)
+	}
+
+	// Collect warnings
+	for w := range warnChan {
+		warn = errors.Join(w, warn)
 	}
 
 	return

@@ -144,7 +144,7 @@ func PatrolAction(cCtx *cli.Context) error {
 	patrolService := patrol.New(gitlabService, slackService, gitService, osvService)
 
 	// Run the scan
-	if err := patrolService.Patrol(
+	if warn, err := patrolService.Patrol(
 		cCtx.StringSlice(groupsFlag),
 		cCtx.StringSlice(projectsFlag),
 		cCtx.Bool(reportGitlabFlag),
@@ -154,6 +154,8 @@ func PatrolAction(cCtx *cli.Context) error {
 		verbose,
 	); err != nil {
 		return errors.Join(errors.New("failed to scan"), err)
+	} else if warn != nil {
+		return cli.Exit("Scan was partially successful, some errors occurred. Check the logs for more information.", 1)
 	}
 
 	return nil

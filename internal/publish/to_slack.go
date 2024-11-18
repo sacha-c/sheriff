@@ -41,7 +41,7 @@ func PublishAsGeneralSlackMessage(channelName string, reports []scanner.Report, 
 	return
 }
 
-func PublishAsSpecificChannelSlackMessage(reports []scanner.Report, s slack.IService) {
+func PublishAsSpecificChannelSlackMessage(reports []scanner.Report, s slack.IService) (warn error) {
 	configuredReports := pie.Filter(reports, func(r scanner.Report) bool { return r.ProjectConfig.SlackChannel != "" })
 
 	var wg sync.WaitGroup
@@ -55,11 +55,15 @@ func PublishAsSpecificChannelSlackMessage(reports []scanner.Report, s slack.ISer
 			_, err := s.PostMessage(report.ProjectConfig.SlackChannel, message...)
 			if err != nil {
 				log.Error().Err(err).Str("channel", report.ProjectConfig.SlackChannel).Msg("Failed to post slack report")
+				err = fmt.Errorf("failed to post slack report to channel %v", report.ProjectConfig.SlackChannel)
+				warn = errors.Join(err, warn)
 			}
 		}()
 	}
 
 	wg.Wait()
+
+	return
 }
 
 func formatSpecificChannelSlackMessage(report scanner.Report) []goslack.MsgOption {

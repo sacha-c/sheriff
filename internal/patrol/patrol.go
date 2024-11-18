@@ -24,7 +24,7 @@ const projectConfigFileName = "sheriff.toml"
 // securityPatroller is the interface of the main security scanner service of this tool.
 type securityPatroller interface {
 	// Scans the given Gitlab groups and projects, creates and publishes the necessary reports
-	Patrol(grouiPaths []string, projectPaths []string, gitlabIssue bool, slackChannel string, reportProjectSlack bool, silentReport bool, verbose bool) error
+	Patrol(grouiPaths []string, projectPaths []string, gitlabIssue bool, slackChannel string, reportProjectSlack bool, silentReport bool, verbose bool) (warn error, err error)
 }
 
 // sheriffService is the implementation of the SecurityPatroller interface.
@@ -48,20 +48,28 @@ func New(gitlabService gitlab.IService, slackService slack.IService, gitService 
 }
 
 // Patrol scans the given Gitlab groups and projects, creates and publishes the necessary reports.
-func (s *sheriffService) Patrol(groupPaths []string, projectPaths []string, gitlabIssue bool, slackChannel string, reportProjectSlack bool, silentReport bool, verbose bool) error {
-	scanReports, err := s.scanAndGetReports(groupPaths, projectPaths)
+func (s *sheriffService) Patrol(groupPaths []string, projectPaths []string, gitlabIssue bool, slackChannel string, reportProjectSlack bool, silentReport bool, verbose bool) (warn error, err error) {
+	scanReports, swarn, err := s.scanAndGetReports(groupPaths, projectPaths)
 	if err != nil {
-		return errors.Join(errors.New("failed to scan projects"), err)
+		return nil, errors.Join(errors.New("failed to scan projects"), err)
+	}
+	if swarn != nil {
+		swarn = errors.Join(errors.New("errors occured when scanning projects"), swarn)
+		warn = errors.Join(swarn, warn)
 	}
 
 	if len(scanReports) == 0 {
 		log.Warn().Msg("No reports found. Check if projects and group paths are correct, and check the logs for any earlier errors.")
-		return nil
+		return swarn, nil
 	}
 
 	if gitlabIssue {
 		log.Info().Msg("Creating issue in affected projects")
-		publish.PublishAsGitlabIssues(scanReports, s.gitlabService)
+		if gwarn := publish.PublishAsGitlabIssues(scanReports, s.gitlabService); gwarn != nil {
+			gwarn = errors.Join(errors.New("errors occured when creating issues"), gwarn)
+			warn = errors.Join(gwarn, warn)
+		}
+
 	}
 
 	if s.slackService != nil {
@@ -70,33 +78,40 @@ func (s *sheriffService) Patrol(groupPaths []string, projectPaths []string, gitl
 
 			if err := publish.PublishAsGeneralSlackMessage(slackChannel, scanReports, groupPaths, projectPaths, s.slackService); err != nil {
 				log.Error().Err(err).Msg("Failed to post slack report")
+				err = errors.Join(errors.New("failed to post slack report"), err)
+				warn = errors.Join(err, warn)
 			}
 		}
 
 		if reportProjectSlack {
 			log.Info().Msg("Posting report to project slack channel")
-			publish.PublishAsSpecificChannelSlackMessage(scanReports, s.slackService)
+			if swarn := publish.PublishAsSpecificChannelSlackMessage(scanReports, s.slackService); swarn != nil {
+				swarn = errors.Join(errors.New("errors occured when posting to project slack channel"), swarn)
+				warn = errors.Join(swarn, warn)
+			}
+
 		}
 	}
 
 	publish.PublishToConsole(scanReports, silentReport)
 
-	return nil
+	return warn, nil
 }
 
-func (s *sheriffService) scanAndGetReports(groupPaths []string, projectPaths []string) (reports []scanner.Report, err error) {
+func (s *sheriffService) scanAndGetReports(groupPaths []string, projectPaths []string) (reports []scanner.Report, warn error, err error) {
 	// Create a temporary directory to store the scans
 	err = os.MkdirAll(tempScanDir, os.ModePerm)
 	if err != nil {
-		return nil, errors.New("could not create temporary directory")
+		return nil, nil, errors.New("could not create temporary directory")
 	}
 	defer os.RemoveAll(tempScanDir)
 	log.Info().Str("path", tempScanDir).Msg("Created temporary directory")
 	log.Info().Strs("groups", groupPaths).Strs("projects", projectPaths).Msg("Getting the list of projects to scan")
 
-	projects, err := s.gitlabService.GetProjectList(groupPaths, projectPaths)
-	if err != nil {
-		return nil, errors.Join(errors.New("could not get project list"), err)
+	projects, pwarn := s.gitlabService.GetProjectList(groupPaths, projectPaths)
+	if pwarn != nil {
+		pwarn = errors.Join(errors.New("errors occured when getting project list"), pwarn)
+		warn = errors.Join(pwarn, warn)
 	}
 
 	// Scan all projects in parallel
@@ -109,6 +124,8 @@ func (s *sheriffService) scanAndGetReports(groupPaths []string, projectPaths []s
 			log.Info().Str("project", project.Name).Msg("Scanning project")
 			if report, err := s.scanProject(project); err != nil {
 				log.Error().Err(err).Str("project", project.Name).Msg("Failed to scan project, skipping.")
+				err = errors.Join(fmt.Errorf("failed to scan project %v", project.Name), err)
+				warn = errors.Join(err, warn)
 				reportsChan <- scanner.Report{Project: project, Error: true}
 			} else {
 				reportsChan <- *report
