@@ -175,14 +175,19 @@ func (s *sheriffService) scanProject(project gogitlab.Project) (report *scanner.
 // It modifies the given report in place.
 func markVulnsAsAcknowledgedInReport(report *scanner.Report, config scanner.ProjectConfig) {
 	ackCodes := make(map[string]bool, len(config.Acknowledged))
+	AckReasons := make(map[string]string, len(config.Acknowledged))
 	for _, ack := range config.Acknowledged {
 		ackCodes[ack.Code] = true
+		AckReasons[ack.Code] = ack.Reason
 	}
 
 	for i, v := range report.Vulnerabilities {
 		if _, ok := ackCodes[v.Id]; ok {
 			// We override the severity kind
 			report.Vulnerabilities[i].SeverityScoreKind = scanner.Acknowledged
+			if _, ok := AckReasons[v.Id]; ok {
+				report.Vulnerabilities[i].AckReason = AckReasons[v.Id]
+			}
 		}
 	}
 }

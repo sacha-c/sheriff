@@ -110,7 +110,8 @@ func TestMarkVulnsAsAcknowledgedInReport(t *testing.T) {
 	config := scanner.ProjectConfig{
 		Acknowledged: []scanner.AcknowledgedVuln{
 			{
-				Code: "CVE-1",
+				Code:   "CVE-1",
+				Reason: "This is a reason",
 			},
 
 			{
@@ -121,8 +122,9 @@ func TestMarkVulnsAsAcknowledgedInReport(t *testing.T) {
 
 	markVulnsAsAcknowledgedInReport(&report, config)
 
-	assert.Equal(t, report.Vulnerabilities[0].SeverityScoreKind, scanner.Acknowledged)
-	assert.Equal(t, report.Vulnerabilities[1].SeverityScoreKind, scanner.Critical)
+	assert.Equal(t, scanner.Acknowledged, report.Vulnerabilities[0].SeverityScoreKind)
+	assert.Equal(t, "This is a reason", report.Vulnerabilities[0].AckReason)
+	assert.Equal(t, scanner.Critical, report.Vulnerabilities[1].SeverityScoreKind)
 }
 
 type mockGitlabService struct {

@@ -41,6 +41,7 @@ type Vulnerability struct {
 	Summary           string
 	Details           string
 	FixAvailable      bool
+	AckReason         string // Optional reason for acknowledging the vulnerability
 }
 
 type AcknowledgedVuln struct {

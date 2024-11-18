@@ -45,6 +45,7 @@ func TestFormatGitlabIssue(t *testing.T) {
 			SeverityScoreKind: scanner.Acknowledged,
 			Summary:           "test",
 			Details:           "test",
+			AckReason:         "This only happens in Windows, and imagine running serious software in Windows!",
 		},
 		{
 			Id:                "test3",
@@ -80,13 +81,16 @@ func TestFormatGitlabIssue(t *testing.T) {
 | https://osv.dev/test2 | 0.00 | ecosystem | name | version | ❌ | test |
 
 ## Severity: ACKNOWLEDGED
-| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |
-| --- | --- | --- | --- | --- | --- | --- |
-| https://osv.dev/test4 | 0.00 | ecosystem | name | version | ❌ | test |
+
+💡 These vulnerabilities have been acknowledged by the team and are not considered a risk.
+
+| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Reason | Source |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| https://osv.dev/test4 | 0.00 | ecosystem | name | version | ❌ | This only happens in Windows, and imagine running serious software in Windows! | test |
 `
 
 	assert.NotEmpty(t, got)
-	assert.Equal(t, want, got)
+	assert.Contains(t, got, want)
 }
 
 // Within a severity kind, vulnerabilities should be sorted by severity score in descending order
@@ -140,7 +144,7 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 | https://osv.dev/test1 | 8.00 | ecosystem | name | version | ❌ | test |
 `
 	assert.NotEmpty(t, got)
-	assert.Equal(t, want, got)
+	assert.Contains(t, got, want)
 }
 
 func TestMarkdownBoolean(t *testing.T) {

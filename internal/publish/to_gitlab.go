@@ -6,6 +6,7 @@ import (
 	"sheriff/internal/scanner"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
@@ -67,13 +68,13 @@ func groupVulnReportsByMaxSeverityKind(reports []scanner.Report) map[scanner.Sev
 func formatGitlabIssue(r scanner.Report) (mdReport string) {
 	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v scanner.Vulnerability) scanner.SeverityScoreKind { return v.SeverityScoreKind })
 
-	mdReport = ""
+	mdReport = getVulnReportHeader()
 	for _, groupName := range severityScoreOrder {
 		if group, ok := groupedVulnerabilities[groupName]; ok {
 			sortedVulnsInGroup := pie.SortUsing(group, func(a, b scanner.Vulnerability) bool {
 				return severityBiggerThan(a.Severity, b.Severity)
 			})
-			mdReport += formatGitlabIssueTable(string(groupName), sortedVulnsInGroup)
+			mdReport += formatGitlabIssueTable(groupName, sortedVulnsInGroup)
 		}
 	}
 
@@ -82,20 +83,41 @@ func formatGitlabIssue(r scanner.Report) (mdReport string) {
 
 // formatGitlabIssueTable formats a group of vulnerabilities as a markdown table
 // for the GitLab issue report
-func formatGitlabIssueTable(groupName string, vs []scanner.Vulnerability) (md string) {
+func formatGitlabIssueTable(groupName scanner.SeverityScoreKind, vs []scanner.Vulnerability) (md string) {
 	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
-	md += "| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+	if groupName == scanner.Acknowledged {
+		md += "\n💡 These vulnerabilities have been acknowledged by the team and are not considered a risk.\n\n"
+		// Acknowledge vulnerabilities have an extra `Reason` column
+		md += "| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Reason | Source |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+	} else {
+		md += "| OSV URL | CVSS | Ecosystem | Package | Version | Fix Available | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+	}
+
 	for _, vuln := range vs {
-		md += fmt.Sprintf(
-			"| %v | %v | %v | %v | %v | %v | %v |\n",
-			fmt.Sprintf("https://osv.dev/%s", vuln.Id),
-			vuln.Severity,
-			vuln.PackageEcosystem,
-			vuln.PackageName,
-			vuln.PackageVersion,
-			markdownBoolean(vuln.FixAvailable),
-			vuln.Source,
-		)
+		if groupName == scanner.Acknowledged {
+			md += fmt.Sprintf(
+				"| %v | %v | %v | %v | %v | %v | %v | %v |\n",
+				fmt.Sprintf("https://osv.dev/%s", vuln.Id),
+				vuln.Severity,
+				vuln.PackageEcosystem,
+				vuln.PackageName,
+				vuln.PackageVersion,
+				markdownBoolean(vuln.FixAvailable),
+				vuln.AckReason,
+				vuln.Source,
+			)
+		} else {
+			md += fmt.Sprintf(
+				"| %v | %v | %v | %v | %v | %v | %v |\n",
+				fmt.Sprintf("https://osv.dev/%s", vuln.Id),
+				vuln.Severity,
+				vuln.PackageEcosystem,
+				vuln.PackageName,
+				vuln.PackageVersion,
+				markdownBoolean(vuln.FixAvailable),
+				vuln.Source,
+			)
+		}
 	}
 
 	return
@@ -107,4 +129,16 @@ func markdownBoolean(b bool) string {
 		return "✅"
 	}
 	return "❌"
+}
+
+// getVulnReportHeader returns the header for the vulnerability report
+func getVulnReportHeader() string {
+	currentTime := time.Now().Local()
+
+	return fmt.Sprintf(`
+ℹ️ This issue lists all the vulnerabilities found in the project by [Sheriff](https://gitlab.com/namespace/sheriff) on %s.
+
+Please review the vulnerabilities and take the necessary actions to fix or acknowledge them, see the [sheriff documentation](https://security-scanner-c26e93.gitlab.io/user-guide/) for more information.`,
+		currentTime.Format("2006-01-02 15:04:05"),
+	)
 }
