@@ -79,7 +79,7 @@ var PatrolFlags = []cli.Flag{
 		Usage:    "Enable reporting to Slack through messages in the specified channel.",
 		Category: string(Reporting),
 	}),
-	altsrc.NewStringFlag(&cli.StringFlag{
+	altsrc.NewBoolFlag(&cli.BoolFlag{
 		Name:     reportSlackProjectChannelFlag,
 		Usage:    "Enable reporting to Slack through messages in the specified project's channel. Requires a project-level configuration file specifying the channel.",
 		Category: string(Reporting),
@@ -149,7 +149,7 @@ func PatrolAction(cCtx *cli.Context) error {
 		cCtx.StringSlice(projectsFlag),
 		cCtx.Bool(reportGitlabFlag),
 		cCtx.String(reportSlackChannelFlag),
-		cCtx.Bool(publicSlackChannelFlag),
+		cCtx.Bool(reportSlackProjectChannelFlag),
 		cCtx.Bool(silentReport),
 		verbose,
 	); err != nil {
