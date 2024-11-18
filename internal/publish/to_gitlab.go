@@ -16,6 +16,9 @@ import (
 // which is how we want to display it in the
 var severityScoreOrder = getSeverityScoreOrder(scanner.SeverityScoreThresholds)
 
+// now is a function that returns the current time
+var now = time.Now
+
 // PublishAsGitlabIssues creates or updates GitLab Issue reports for the given reports
 // It will add the Issue URL to the Report if it was created or updated successfully
 func PublishAsGitlabIssues(reports []scanner.Report, s gitlab.IService) {
@@ -133,12 +136,12 @@ func markdownBoolean(b bool) string {
 
 // getVulnReportHeader returns the header for the vulnerability report
 func getVulnReportHeader() string {
-	currentTime := time.Now().Local()
+	currentTime := now().Local()
 
 	return fmt.Sprintf(`
 ℹ️ This issue lists all the vulnerabilities found in the project by [Sheriff](https://gitlab.com/namespace/sheriff) on %s.
 
 Please review the vulnerabilities and take the necessary actions to fix or acknowledge them, see the [sheriff documentation](https://security-scanner-c26e93.gitlab.io/user-guide/) for more information.`,
-		currentTime.Format("2006-01-02 15:04:05"),
+		currentTime.Format("2006-01-02"),
 	)
 }

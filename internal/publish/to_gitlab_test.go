@@ -3,6 +3,7 @@ package publish
 import (
 	"sheriff/internal/scanner"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -181,6 +182,23 @@ func TestPublishAsGitlabIssues(t *testing.T) {
 	t.Run("FillsTheIssueUrl", func(t *testing.T) {
 		assert.Equal(t, "https://my-issue.com", reports[0].IssueUrl)
 	})
+
+}
+
+func TestGitlabIssueReportHeader(t *testing.T) {
+	origNow := now
+	now = func() time.Time {
+		return time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+	defer func() {
+		now = origNow
+	}()
+
+	got := getVulnReportHeader()
+
+	want := `ℹ️ This issue lists all the vulnerabilities found in the project by [Sheriff](https://gitlab.com/namespace/sheriff) on 2021-01-01.`
+
+	assert.Contains(t, got, want)
 
 }
 
