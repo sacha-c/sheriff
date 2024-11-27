@@ -1,3 +1,9 @@
+## v0.17.3 (2024-11-27)
+
+### CI
+
+- add releases and more tests
+
 ## v0.17.2 (2024-11-27)
 
 ### Fix
