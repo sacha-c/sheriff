@@ -1,3 +1,9 @@
+## v0.17.5 (2024-11-28)
+
+### Technical
+
+- update issue templates (#7)
+
 ## v0.17.4 (2024-11-27)
 
 ### Technical
