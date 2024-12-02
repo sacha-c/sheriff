@@ -1,0 +1,28 @@
+variables:
+  GITLAB_TOKEN:
+    description: "GitLab token for API access"
+  SLACK_TOKEN:
+    description: "Slack token for notifications"
+  SHERIFF_CONFIG:
+    description: "Sheriff TOML configuration file contents. Will be available to sheriff as a file `sheriff.toml`"
+    SHERIFF_CLI_ARGS:
+    description: "Add CLI arguments to pass to the sheriff patrol command"
+
+.sheriff:
+  stage: deploy
+  image:
+    name: elementsinteractive/sheriff:v0.22.2
+    entrypoint: [""]
+  resource_group: production
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  script:
+    - sheriff patrol
+      --gitlab-token $GITLAB_TOKEN
+      --slack-token $SLACK_TOKEN
+      --config $SHERIFF_CONFIG
+      $SHERIFF_CLI_ARGS
+
+sheriff:
+  extends: .sheriff

@@ -109,3 +109,5 @@ commitizen:
   version: 0.22.2
   version_files:
   - internal/cli/app.go:Version
+  - gitlab/templates/sheriff.gitlab-ci.yml:sheriff:v
+  - README.md:tags/v
