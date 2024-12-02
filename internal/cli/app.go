@@ -9,7 +9,7 @@ func App(args []string) {
 	app := &cli.App{
 		Name:    "sheriff",
 		Usage:   "Fighting dangerous dangerous dependencies since 2024.",
-		Version: "0.17.7",
+		Version: "0.17.8",
 		Commands: []*cli.Command{
 			{
 				Name:  "patrol",

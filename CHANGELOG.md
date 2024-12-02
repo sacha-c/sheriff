@@ -1,3 +1,9 @@
+## v0.17.8 (2024-12-02)
+
+### Fix
+
+- make `sheriff` the entrypoint of the docker image (#14)
+
 ## v0.17.7 (2024-12-02)
 
 ### Technical
