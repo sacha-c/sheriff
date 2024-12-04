@@ -106,6 +106,6 @@ commitizen:
   name: cz_customize
   tag_format: v$version
   update_changelog_on_bump: false
-  version: 0.17.9
+  version: 0.17.10
   version_files:
   - internal/cli/app.go:Version
