@@ -1,3 +1,9 @@
+## v0.17.9 (2024-12-04)
+
+### Fix
+
+- change cli message on warn to "patrol" and not "scan" (#18)
+
 ## v0.17.8 (2024-12-02)
 
 ### Fix
