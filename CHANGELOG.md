@@ -1,3 +1,9 @@
+## v0.17.11 (2024-12-04)
+
+### CI
+
+- fix github app token use in bump action
+
 ## v0.17.10 (2024-12-04)
 
 ### CI
