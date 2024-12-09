@@ -1,3 +1,9 @@
+## v0.18.2 (2024-12-09)
+
+### CI
+
+- use goreleaser to generate binaries (#24)
+
 ## v0.18.1 (2024-12-05)
 
 ### CI
