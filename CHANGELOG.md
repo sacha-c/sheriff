@@ -1,3 +1,9 @@
+## v0.19.0 (2024-12-09)
+
+### Feat
+
+- fail-fast in case of missing scanners (#25)
+
 ## v0.18.4 (2024-12-09)
 
 ### Fix
