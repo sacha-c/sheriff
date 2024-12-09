@@ -1,3 +1,9 @@
+## v0.18.3 (2024-12-09)
+
+### CI
+
+- change goreleaser changelog and attempt a non-shallow clone (#29)
+
 ## v0.18.2 (2024-12-09)
 
 ### CI
