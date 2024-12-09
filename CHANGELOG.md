@@ -1,3 +1,9 @@
+## v0.18.4 (2024-12-09)
+
+### Fix
+
+- keep project-level config backwards-compatible
+
 ## v0.18.3 (2024-12-09)
 
 ### CI
