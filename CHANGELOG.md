@@ -1,3 +1,9 @@
+## v0.19.1 (2024-12-16)
+
+### Technical
+
+- cleanup some old links (#33)
+
 ## v0.19.0 (2024-12-09)
 
 ### Feat
