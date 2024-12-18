@@ -1,3 +1,14 @@
+## v0.20.0 (2024-12-18)
+
+### Feat
+
+- **#32**: improve configuration API
+- **#32**: configure by file with internal package
+
+### Technical
+
+- move toml function to config package and improve comments
+
 ## v0.19.2 (2024-12-18)
 
 ### Refactor
