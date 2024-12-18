@@ -1,3 +1,9 @@
+## v0.20.1 (2024-12-18)
+
+### Fix
+
+- sheriff.toml config should be optional (#37)
+
 ## v0.20.0 (2024-12-18)
 
 ### Feat
