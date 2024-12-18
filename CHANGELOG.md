@@ -1,3 +1,10 @@
+## v0.19.2 (2024-12-18)
+
+### Refactor
+
+- **#32**: move patrol and project config parsing to config package
+- **#32**: move project config to separate package
+
 ## v0.19.1 (2024-12-16)
 
 ### Technical
