@@ -5,7 +5,7 @@ variables:
     description: "Slack token for notifications"
   SHERIFF_CONFIG:
     description: "Sheriff TOML configuration file contents. Will be available to sheriff as a file `sheriff.toml`"
-    SHERIFF_CLI_ARGS:
+  SHERIFF_CLI_ARGS:
     description: "Add CLI arguments to pass to the sheriff patrol command"
 
 .sheriff:
