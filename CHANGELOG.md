@@ -1,3 +1,9 @@
+## v0.22.0 (2024-12-23)
+
+### Feat
+
+- **#31**: Mark outdated acknowledged vulnerabilities in the issue report (#40)
+
 ## v0.21.0 (2024-12-23)
 
 ### Feat
