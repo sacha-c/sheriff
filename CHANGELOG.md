@@ -1,3 +1,9 @@
+## v0.22.1 (2024-12-23)
+
+### Refactor
+
+- use slices.SortFunc instead of sort.Slice (#39)
+
 ## v0.22.0 (2024-12-23)
 
 ### Feat
