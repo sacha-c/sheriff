@@ -38,6 +38,8 @@ Sheriff is a tool to scan repositories and generate security reports.
   - [Source code hosting services](#source-code-hosting-services)
   - [Messaging services](#messaging-services)
   - [Scanners](#scanners)
+- [Usage in CI](#usage-in-ci)
+  - [In Gitlab](#in-gitlab)
 - [Contributors ✨](#contributors-)
 
 ## Quick Usage
@@ -238,6 +240,34 @@ Sets the token to be used when reporting the security report on slack
 
 - [x] [OSV-Scanner](https://github.com/google/osv-scanner)
 - [ ] [Trivy](https://github.com/aquasecurity/trivy)
+
+## Usage in CI
+
+Sheriff was designed so it could be run as part of a CI pipeline.
+
+### In Gitlab
+
+To run sheriff on Gitlab, we suggest the following set-up:
+1. Create a repostory which will contain your CI runner, you can call it `sheriff-runner` for example
+2. Create a CI file in this repository which extends from our template
+    ```yaml
+    include:
+      - remote: 'https://raw.githubusercontent.com/elementsinteractive/sheriff/refs/tags/v0.22.2/gitlab/templates/sheriff.gitlab-ci.yml'
+
+    sheriff:
+      extends: .sheriff
+    ```
+3. Go to **Build** -> **Pipeline schedules** -> **New schedule**
+   a. Add a name & a preferred cron interval. We prefer a weekly scan such as `0 7 * * 1` (every Monday at 7am)
+   b. Add a **Variable** Variable named `SHERIFF_CLI_ARGS` which extra CLI arguments you wish to add (see CLI configuration section)
+   c. Add a **File** Variable named `SHERIFF_CONFIG` containing your sheriff configuration (see file configuration section)
+4. Go to **Settings** -> **CI/CD** -> **Variables**
+   a. If scanning gitlab projects, add your gitlab token in **GITLAB_TOKEN** with *Protected*, *Masked*, *Hidden*
+   b. If publishing reports to slack, add your slack token in **SLACK_TOKEN** with *Protected*, *Masked*
+5. Test your pipeline by going to **Build** -> **Pipeline schedules** & clicking the play button on your pipline
+5. Enjoy! Your pipeline should now run & scan your projects on a weekly basis 😀
+
+We have a gitlab template set up for convenience, which runs sheriff with a set of configurable options.
 
 ## Contributors ✨
 
