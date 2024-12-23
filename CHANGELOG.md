@@ -1,3 +1,9 @@
+## v0.21.0 (2024-12-23)
+
+### Feat
+
+- **#36**: post to multiple slack channels (#38)
+
 ## v0.20.1 (2024-12-18)
 
 ### Fix
