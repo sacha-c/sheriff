@@ -1,3 +1,9 @@
+## v0.22.2 (2024-12-23)
+
+### CI
+
+- fix labeler workflow
+
 ## v0.22.1 (2024-12-23)
 
 ### Refactor
