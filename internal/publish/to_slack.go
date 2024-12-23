@@ -15,30 +15,34 @@ import (
 	goslack "github.com/slack-go/slack"
 )
 
-// PublishAsGeneralSlackMessage publishes a report of the vulnerabilities scanned to a slack channel
-func PublishAsGeneralSlackMessage(channelName string, reports []scanner.Report, paths []string, s slack.IService) (err error) {
+// PublishAsGeneralSlackMessage publishes a report of the vulnerabilities scanned to a list of slack channels
+func PublishAsGeneralSlackMessage(channelNames []string, reports []scanner.Report, paths []string, s slack.IService) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(channelNames))
 	vulnerableReportsBySeverityKind := groupVulnReportsByMaxSeverityKind(reports)
 
 	summary := formatSummary(vulnerableReportsBySeverityKind, len(reports), paths)
+	threadMsgs := formatReportMessage(vulnerableReportsBySeverityKind)
+	for _, slackChannel := range channelNames {
+		log.Info().Str("slackChannel", slackChannel).Msg("Posting report to slack channel")
+		wg.Add(1)
+		go func(errChan chan<- error) {
+			defer wg.Done()
+			if err := publishAsGeneralSlackMessageSingleChannel(slackChannel, summary, threadMsgs, s); err != nil {
+				log.Error().Err(err).Str("slackChannel", slackChannel).Msg("Failed to post slack report")
+				errChan <- err
+			}
+		}(errChan)
+	}
+	wg.Wait()
+	close(errChan)
 
-	ts, err := s.PostMessage(channelName, summary...)
-	if err != nil {
-		return errors.Join(errors.New("failed to post slack summary"), err)
+	var outErr error
+	for err := range errChan {
+		outErr = errors.Join(err, outErr)
 	}
 
-	msgOptions := formatReportMessage(vulnerableReportsBySeverityKind)
-	for _, option := range msgOptions {
-		_, err = s.PostMessage(
-			channelName,
-			option,
-			goslack.MsgOptionTS(ts), // Replies to the summary message in thread
-		)
-		if err != nil {
-			return errors.Join(errors.New("failed to message in slack summary thread"), err)
-		}
-	}
-
-	return
+	return outErr
 }
 
 func PublishAsSpecificChannelSlackMessage(reports []scanner.Report, s slack.IService) (warn error) {
@@ -204,6 +208,26 @@ func formatReportMessage(reportsBySeverityKind map[scanner.SeverityScoreKind][]s
 
 	for _, chunk := range splitText {
 		msgOptions = append(msgOptions, goslack.MsgOptionBlocks(goslack.NewSectionBlock(goslack.NewTextBlockObject("mrkdwn", chunk, false, false), nil, nil)))
+	}
+
+	return
+}
+
+func publishAsGeneralSlackMessageSingleChannel(channelName string, summary []goslack.MsgOption, threadMsgs []goslack.MsgOption, s slack.IService) (err error) {
+	ts, err := s.PostMessage(channelName, summary...)
+	if err != nil {
+		return errors.Join(errors.New("failed to post slack summary"), err)
+	}
+
+	for _, option := range threadMsgs {
+		_, err = s.PostMessage(
+			channelName,
+			option,
+			goslack.MsgOptionTS(ts), // Replies to the summary message in thread
+		)
+		if err != nil {
+			return errors.Join(errors.New("failed to message in slack summary thread"), err)
+		}
 	}
 
 	return
