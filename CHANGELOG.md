@@ -1,3 +1,9 @@
+## v0.23.1 (2024-12-23)
+
+### CI
+
+- fix ci variable indentation
+
 ## v0.23.0 (2024-12-23)
 
 ### Feat
