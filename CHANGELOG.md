@@ -1,3 +1,9 @@
+## v0.23.2 (2024-12-30)
+
+### Fix
+
+- project config compatibility
+
 ## v0.23.1 (2024-12-23)
 
 ### CI
