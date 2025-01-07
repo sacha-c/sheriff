@@ -1,6 +1,7 @@
 package config
 
 import (
+	"sheriff/internal/repo"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,7 +9,7 @@ import (
 
 func TestGetPatrolConfiguration(t *testing.T) {
 	want := PatrolConfig{
-		Locations:             []ProjectLocation{{Type: Gitlab, Path: "group1"}, {Type: Gitlab, Path: "group2/project1"}},
+		Locations:             []ProjectLocation{{Type: repo.Gitlab, Path: "group1"}, {Type: repo.Gitlab, Path: "group2/project1"}},
 		ReportToEmails:        []string{"some-email@gmail.com"},
 		ReportToSlackChannels: []string{"report-slack-channel"},
 		ReportToIssue:         true,
@@ -28,7 +29,7 @@ func TestGetPatrolConfiguration(t *testing.T) {
 
 func TestGetPatrolConfigurationCLIOverridesFile(t *testing.T) {
 	want := PatrolConfig{
-		Locations:             []ProjectLocation{{Type: Gitlab, Path: "group1"}, {Type: Gitlab, Path: "group2/project1"}},
+		Locations:             []ProjectLocation{{Type: repo.Gitlab, Path: "group1"}, {Type: repo.Gitlab, Path: "group2/project1"}},
 		ReportToEmails:        []string{"email@gmail.com", "other@gmail.com"},
 		ReportToSlackChannels: []string{"other-slack-channel"},
 		ReportToIssue:         false,

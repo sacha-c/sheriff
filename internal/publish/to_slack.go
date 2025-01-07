@@ -82,7 +82,7 @@ func formatSpecificChannelSlackMessage(report scanner.Report) []goslack.MsgOptio
 
 	// Texts
 	title := fmt.Sprintf("Sheriff Report %v", time.Now().Format("2006-01-02"))
-	subtitle := fmt.Sprintf("Project: <%s|*%s*>", report.Project.WebURL, report.Project.PathWithNamespace)
+	subtitle := fmt.Sprintf("Project: <%s|*%s*>", report.Project.WebURL, report.Project.Path)
 	var subtitleFullReport string
 	if report.IssueUrl != "" {
 		subtitleFullReport = fmt.Sprintf("Full report: <%s|*Full report*>", report.IssueUrl)

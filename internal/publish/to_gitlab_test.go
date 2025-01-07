@@ -1,13 +1,13 @@
 package publish
 
 import (
+	"sheriff/internal/repo"
 	"sheriff/internal/scanner"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xanzy/go-gitlab"
 )
 
 // Severities are grouped by severity score kind
@@ -164,7 +164,7 @@ func TestMarkdownBoolean(t *testing.T) {
 
 func TestPublishAsGitlabIssues(t *testing.T) {
 	mockGitlabService := &mockGitlabService{}
-	mockGitlabService.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&gitlab.Issue{WebURL: "https://my-issue.com"}, nil)
+	mockGitlabService.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&repo.Issue{WebURL: "https://my-issue.com"}, nil)
 	reports := []scanner.Report{
 		{
 			IsVulnerable: true,
@@ -206,17 +206,17 @@ type mockGitlabService struct {
 	mock.Mock
 }
 
-func (c *mockGitlabService) GetProjectList(paths []string) ([]gitlab.Project, error) {
+func (c *mockGitlabService) GetProjectList(paths []string) ([]repo.Project, error) {
 	args := c.Called(paths)
-	return args.Get(0).([]gitlab.Project), args.Error(1)
+	return args.Get(0).([]repo.Project), args.Error(1)
 }
 
-func (c *mockGitlabService) CloseVulnerabilityIssue(project gitlab.Project) error {
+func (c *mockGitlabService) CloseVulnerabilityIssue(project repo.Project) error {
 	args := c.Called(project)
 	return args.Error(0)
 }
 
-func (c *mockGitlabService) OpenVulnerabilityIssue(project gitlab.Project, report string) (*gitlab.Issue, error) {
+func (c *mockGitlabService) OpenVulnerabilityIssue(project repo.Project, report string) (*repo.Issue, error) {
 	args := c.Called(project, report)
-	return args.Get(0).(*gitlab.Issue), args.Error(1)
+	return args.Get(0).(*repo.Issue), args.Error(1)
 }

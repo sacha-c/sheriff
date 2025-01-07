@@ -6,12 +6,13 @@ import (
 	"os/exec"
 	"sheriff/internal/config"
 	"sheriff/internal/git"
-	"sheriff/internal/gitlab"
 	"sheriff/internal/patrol"
+	"sheriff/internal/repo"
 	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
 	"strings"
 
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 )
 
@@ -124,7 +125,7 @@ func PatrolAction(cCtx *cli.Context) error {
 	slackToken := cCtx.String(slackTokenFlag)
 
 	// Create services
-	gitlabService, err := gitlab.New(gitlabToken)
+	gitlabService, err := repo.NewGitlabService(gitlabToken)
 	if err != nil {
 		return errors.Join(errors.New("failed to create GitLab service"), err)
 	}
@@ -149,7 +150,8 @@ func PatrolAction(cCtx *cli.Context) error {
 	if warn, err := patrolService.Patrol(config); err != nil {
 		return errors.Join(errors.New("failed to scan"), err)
 	} else if warn != nil {
-		return cli.Exit("Patrol was partially successful, some errors occurred. Check the logs for more information.", 1)
+		log.Err(warn).Msg("Patrol was partially successful, some errors occurred.")
+		return cli.Exit("Exiting patrol with partial success", 1)
 	}
 
 	return nil

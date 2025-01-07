@@ -3,7 +3,7 @@ package publish
 import (
 	"errors"
 	"fmt"
-	"sheriff/internal/gitlab"
+	"sheriff/internal/repo"
 	"sheriff/internal/scanner"
 	"strconv"
 	"sync"
@@ -22,7 +22,7 @@ var now = time.Now
 
 // PublishAsGitlabIssues creates or updates GitLab Issue reports for the given reports
 // It will add the Issue URL to the Report if it was created or updated successfully
-func PublishAsGitlabIssues(reports []scanner.Report, s gitlab.IService) (warn error) {
+func PublishAsGitlabIssues(reports []scanner.Report, s repo.IService) (warn error) {
 	var wg sync.WaitGroup
 	for i := 0; i < len(reports); i++ {
 		wg.Add(1)
@@ -30,16 +30,16 @@ func PublishAsGitlabIssues(reports []scanner.Report, s gitlab.IService) (warn er
 			defer wg.Done()
 			if reports[i].IsVulnerable {
 				if issue, err := s.OpenVulnerabilityIssue(reports[i].Project, formatGitlabIssue(reports[i])); err != nil {
-					log.Error().Err(err).Str("project", reports[i].Project.Name).Msg("Failed to open or update issue")
-					err = fmt.Errorf("failed to open or update issue for project %v", reports[i].Project.Name)
+					log.Error().Err(err).Str("project", reports[i].Project.Path).Msg("Failed to open or update issue")
+					err = fmt.Errorf("failed to open or update issue for project %v", reports[i].Project.Path)
 					warn = errors.Join(err, warn)
 				} else {
 					reports[i].IssueUrl = issue.WebURL
 				}
 			} else {
 				if err := s.CloseVulnerabilityIssue(reports[i].Project); err != nil {
-					log.Error().Err(err).Str("project", reports[i].Project.Name).Msg("Failed to close issue")
-					err = fmt.Errorf("failed to close issue for project %v", reports[i].Project.Name)
+					log.Error().Err(err).Str("project", reports[i].Project.Path).Msg("Failed to close issue")
+					err = fmt.Errorf("failed to close issue for project %v", reports[i].Project.Path)
 					warn = errors.Join(err, warn)
 				}
 			}

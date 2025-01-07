@@ -1,17 +1,17 @@
 package publish
 
 import (
+	"sheriff/internal/repo"
 	"sheriff/internal/scanner"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	gogitlab "github.com/xanzy/go-gitlab"
 )
 
 func TestFormatReportMessageForConsole(t *testing.T) {
 	reports := []scanner.Report{
 		{
-			Project: gogitlab.Project{
+			Project: repo.Project{
 				Name:   "project1",
 				WebURL: "http://example.com",
 			},
@@ -27,7 +27,7 @@ func TestFormatReportMessageForConsole(t *testing.T) {
 			},
 		},
 		{
-			Project: gogitlab.Project{
+			Project: repo.Project{
 				Name:   "project2",
 				WebURL: "http://example2.com",
 			},

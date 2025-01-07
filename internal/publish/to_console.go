@@ -32,7 +32,7 @@ func formatReportsMessageForConsole(scanReports []scanner.Report) string {
 	r.WriteString(fmt.Sprintf("Total number of projects scanned: %v\n", len(scanReports)))
 	for _, report := range scanReports {
 		r.WriteString(fmt.Sprintln("---------------------------------"))
-		r.WriteString(fmt.Sprintf("%v\n", report.Project.PathWithNamespace))
+		r.WriteString(fmt.Sprintf("%v\n", report.Project.Path))
 		r.WriteString(fmt.Sprintf("\tProject URL: %v\n", report.Project.WebURL))
 		r.WriteString(fmt.Sprintf("\tNumber of vulnerabilities: %v\n", len(report.Vulnerabilities)))
 	}
