@@ -1,3 +1,9 @@
+## v0.23.4 (2025-01-07)
+
+### Refactor
+
+- **#9**: move gitlab logic to specific repository package
+
 ## v0.23.3 (2025-01-07)
 
 ### Technical
