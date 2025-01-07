@@ -1,3 +1,9 @@
+## v0.23.3 (2025-01-07)
+
+### Technical
+
+- match project config with cli config
+
 ## v0.23.2 (2024-12-30)
 
 ### Fix
