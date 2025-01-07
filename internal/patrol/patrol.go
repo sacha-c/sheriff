@@ -8,15 +8,14 @@ import (
 	"os"
 	"sheriff/internal/config"
 	"sheriff/internal/git"
-	"sheriff/internal/gitlab"
 	"sheriff/internal/publish"
+	"sheriff/internal/repo"
 	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
 	"sync"
 
 	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
-	gogitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/exp/slices"
 )
 
@@ -30,7 +29,7 @@ type securityPatroller interface {
 
 // sheriffService is the implementation of the SecurityPatroller interface.
 type sheriffService struct {
-	gitlabService gitlab.IService
+	gitlabService repo.IService
 	slackService  slack.IService
 	gitService    git.IService
 	osvService    scanner.VulnScanner[scanner.OsvReport]
@@ -39,7 +38,7 @@ type sheriffService struct {
 // New creates a new securityPatroller service.
 // It contains the main "loop" logic of this tool.
 // A "patrol" is defined as scanning GitLab groups for vulnerabilities and publishing reports where needed.
-func New(gitlabService gitlab.IService, slackService slack.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) securityPatroller {
+func New(gitlabService repo.IService, slackService slack.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) securityPatroller {
 	return &sheriffService{
 		gitlabService: gitlabService,
 		slackService:  slackService,
@@ -109,7 +108,7 @@ func (s *sheriffService) scanAndGetReports(locations []config.ProjectLocation) (
 	log.Info().Str("path", tempScanDir).Msg("Created temporary directory")
 
 	gitlabLocs := pie.Map(
-		pie.Filter(locations, func(v config.ProjectLocation) bool { return v.Type == config.Gitlab }),
+		pie.Filter(locations, func(v config.ProjectLocation) bool { return v.Type == repo.Gitlab }),
 		func(v config.ProjectLocation) string { return v.Path },
 	)
 	log.Info().Strs("locations", gitlabLocs).Msg("Getting the list of projects to scan")
@@ -127,10 +126,10 @@ func (s *sheriffService) scanAndGetReports(locations []config.ProjectLocation) (
 		wg.Add(1)
 		go func(reportsChan chan<- scanner.Report) {
 			defer wg.Done()
-			log.Info().Str("project", project.Name).Msg("Scanning project")
+			log.Info().Str("project", project.Path).Msg("Scanning project")
 			if report, err := s.scanProject(project); err != nil {
-				log.Error().Err(err).Str("project", project.Name).Msg("Failed to scan project, skipping.")
-				err = errors.Join(fmt.Errorf("failed to scan project %v", project.Name), err)
+				log.Error().Err(err).Str("project", project.Path).Msg("Failed to scan project, skipping.")
+				err = errors.Join(fmt.Errorf("failed to scan project %v", project.Path), err)
 				warn = errors.Join(err, warn)
 				reportsChan <- scanner.Report{Project: project, Error: true}
 			} else {
@@ -154,7 +153,7 @@ func (s *sheriffService) scanAndGetReports(locations []config.ProjectLocation) (
 }
 
 // scanProject scans a project for vulnerabilities using the osv scanner.
-func (s *sheriffService) scanProject(project gogitlab.Project) (report *scanner.Report, err error) {
+func (s *sheriffService) scanProject(project repo.Project) (report *scanner.Report, err error) {
 	dir, err := os.MkdirTemp(tempScanDir, fmt.Sprintf("%v-", project.Name))
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to create project temporary directory"), err)
@@ -162,23 +161,23 @@ func (s *sheriffService) scanProject(project gogitlab.Project) (report *scanner.
 	defer os.RemoveAll(dir)
 
 	// Clone the project
-	log.Info().Str("project", project.Name).Str("dir", dir).Msg("Cloning project")
-	if err = s.gitService.Clone(dir, project.HTTPURLToRepo); err != nil {
+	log.Info().Str("project", project.Path).Str("dir", dir).Msg("Cloning project")
+	if err = s.gitService.Clone(dir, project.RepoUrl); err != nil {
 		return nil, errors.Join(errors.New("failed to clone project"), err)
 	}
 
-	config := config.GetProjectConfiguration(project.NameWithNamespace, dir)
+	config := config.GetProjectConfiguration(project.Path, dir)
 
 	// Scan the project
-	log.Info().Str("project", project.Name).Msg("Running osv-scanner")
+	log.Info().Str("project", project.Path).Msg("Running osv-scanner")
 	osvReport, err := s.osvService.Scan(dir)
 	if err != nil {
-		log.Error().Err(err).Str("project", project.Name).Msg("Failed to run osv-scanner")
+		log.Error().Err(err).Str("project", project.Path).Msg("Failed to run osv-scanner")
 		return nil, errors.Join(errors.New("failed to run osv-scanner"), err)
 	}
 
 	r := s.osvService.GenerateReport(project, osvReport)
-	log.Info().Str("project", project.Name).Msg("Finished scanning with osv-scanner")
+	log.Info().Str("project", project.Path).Msg("Finished scanning with osv-scanner")
 
 	r.ProjectConfig = config
 

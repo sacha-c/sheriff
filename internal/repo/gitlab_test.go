@@ -1,4 +1,4 @@
-package gitlab
+package repo
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewService(t *testing.T) {
-	s, err := New("token")
+	s, err := NewGitlabService("token")
 
 	assert.Nil(t, err)
 	assert.NotNil(t, s)
@@ -20,7 +20,7 @@ func TestGetProjectListWithTopLevelGroup(t *testing.T) {
 	mockClient := mockClient{}
 	mockClient.On("ListGroupProjects", "group", mock.Anything, mock.Anything).Return([]*gitlab.Project{{Name: "Hello World"}}, &gitlab.Response{}, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
 	projects, err := svc.GetProjectList([]string{"group"})
 
@@ -34,7 +34,7 @@ func TestGetProjectListWithSubGroup(t *testing.T) {
 	mockClient := mockClient{}
 	mockClient.On("ListGroupProjects", "group/subgroup", mock.Anything, mock.Anything).Return([]*gitlab.Project{{Name: "Hello World"}}, &gitlab.Response{}, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
 	projects, err := svc.GetProjectList([]string{"group/subgroup"})
 
@@ -49,7 +49,7 @@ func TestGetProjectListWithProjects(t *testing.T) {
 	mockClient.On("ListGroupProjects", "group/subgroup/project", mock.Anything, mock.Anything).Return([]*gitlab.Project{}, &gitlab.Response{}, errors.New("no group"))
 	mockClient.On("GetProject", "group/subgroup/project", mock.Anything, mock.Anything).Return(&gitlab.Project{Name: "Hello World", PathWithNamespace: "group/subgroup/project"}, &gitlab.Response{}, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
 	projects, err := svc.GetProjectList([]string{"group/subgroup/project"})
 
@@ -69,7 +69,7 @@ func TestGetProjectListWithGroupAndProjects(t *testing.T) {
 	mockClient.On("ListGroupProjects", project1.PathWithNamespace, mock.Anything, mock.Anything).Return([]*gitlab.Project{}, &gitlab.Response{}, errors.New("no group"))
 	mockClient.On("GetProject", project1.PathWithNamespace, mock.Anything, mock.Anything).Return(project1, &gitlab.Response{}, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
 	projects, err := svc.GetProjectList([]string{"group", "group/subgroup", project1.PathWithNamespace})
 
@@ -105,7 +105,7 @@ func TestGetProjectListWithNextPage(t *testing.T) {
 		},
 	}, mock.Anything).Return([]*gitlab.Project{project2}, &gitlab.Response{NextPage: 0, TotalPages: 2}, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
 	projects, err := svc.GetProjectList([]string{"group/subgroup"})
 
@@ -121,9 +121,9 @@ func TestCloseVulnerabilityIssue(t *testing.T) {
 	mockClient.On("ListProjectIssues", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Issue{{State: "opened"}}, nil, nil)
 	mockClient.On("UpdateIssue", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&gitlab.Issue{State: "closed"}, nil, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
-	err := svc.CloseVulnerabilityIssue(gitlab.Project{})
+	err := svc.CloseVulnerabilityIssue(Project{})
 
 	assert.Nil(t, err)
 	mockClient.AssertExpectations(t)
@@ -133,9 +133,9 @@ func TestCloseVulnerabilityIssueAlreadyClosed(t *testing.T) {
 	mockClient := mockClient{}
 	mockClient.On("ListProjectIssues", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Issue{{State: "closed"}}, nil, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
-	err := svc.CloseVulnerabilityIssue(gitlab.Project{})
+	err := svc.CloseVulnerabilityIssue(Project{})
 
 	assert.Nil(t, err)
 	mockClient.AssertExpectations(t)
@@ -145,9 +145,9 @@ func TestCloseVulnerabilityIssueNoIssue(t *testing.T) {
 	mockClient := mockClient{}
 	mockClient.On("ListProjectIssues", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Issue{}, nil, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
-	err := svc.CloseVulnerabilityIssue(gitlab.Project{})
+	err := svc.CloseVulnerabilityIssue(Project{})
 
 	assert.Nil(t, err)
 	mockClient.AssertExpectations(t)
@@ -156,18 +156,18 @@ func TestCloseVulnerabilityIssueNoIssue(t *testing.T) {
 func TestOpenVulnerabilityIssue(t *testing.T) {
 	mockClient := mockClient{}
 	mockClient.On("ListProjectIssues", mock.Anything, mock.Anything, mock.Anything).Return([]*gitlab.Issue{}, nil, nil)
-	mockClient.On("CreateIssue", mock.Anything, mock.Anything, mock.Anything).Return(&gitlab.Issue{ID: 666}, nil, nil)
+	mockClient.On("CreateIssue", mock.Anything, mock.Anything, mock.Anything).Return(&gitlab.Issue{Title: "666"}, nil, nil)
 
-	svc := service{&mockClient}
+	svc := gitlabService{&mockClient}
 
-	i, err := svc.OpenVulnerabilityIssue(gitlab.Project{}, "report")
+	i, err := svc.OpenVulnerabilityIssue(Project{}, "report")
 	assert.Nil(t, err)
 	assert.NotNil(t, i)
-	assert.Equal(t, 666, i.ID)
+	assert.Equal(t, "666", i.Title)
 }
 
 func TestFilterUniqueProjects(t *testing.T) {
-	projects := []gitlab.Project{
+	projects := []Project{
 		{ID: 1},
 		{ID: 1},
 		{ID: 2},

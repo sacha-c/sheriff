@@ -3,13 +3,13 @@ package scanner
 import (
 	"encoding/json"
 	"path/filepath"
+	"sheriff/internal/repo"
 	"sheriff/internal/shell"
 	"strconv"
 	"time"
 
 	"github.com/elliotchance/pie/v2"
 	"github.com/rs/zerolog/log"
-	gogitlab "github.com/xanzy/go-gitlab"
 )
 
 type osvReferenceKind string
@@ -136,7 +136,7 @@ func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
 }
 
 // GenerateReport generates a Report struct from the OsvReport.
-func (s *osvScanner) GenerateReport(p gogitlab.Project, r *OsvReport) Report {
+func (s *osvScanner) GenerateReport(p repo.Project, r *OsvReport) Report {
 	if r == nil {
 		return Report{
 			Project:         p,

@@ -2,13 +2,13 @@ package publish
 
 import (
 	"sheriff/internal/config"
+	"sheriff/internal/repo"
 	"sheriff/internal/scanner"
 	"testing"
 
 	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	gogitlab "github.com/xanzy/go-gitlab"
 )
 
 func TestPublishAsGeneralSlackMessage(t *testing.T) {
@@ -102,7 +102,7 @@ func TestFormatReportMessage(t *testing.T) {
 	reportBySeverityKind := map[scanner.SeverityScoreKind][]scanner.Report{
 		scanner.Critical: {
 			{
-				Project: gogitlab.Project{
+				Project: repo.Project{
 					Name:   "project1",
 					WebURL: "http://example.com",
 				},
@@ -118,7 +118,7 @@ func TestFormatReportMessage(t *testing.T) {
 		},
 		scanner.High: {
 			{
-				Project: gogitlab.Project{
+				Project: repo.Project{
 					Name:   "project2",
 					WebURL: "http://example2.com",
 				},
