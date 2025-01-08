@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"os/exec"
 	"sheriff/internal/config"
-	"sheriff/internal/git"
 	"sheriff/internal/patrol"
-	"sheriff/internal/repo"
+	"sheriff/internal/repository/provider"
 	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
 	"strings"
@@ -34,6 +33,7 @@ const reportToSlackChannel = "report-to-slack-channel"
 const reportEnableProjectReportToFlag = "report-enable-project-report-to"
 const silentReportFlag = "silent"
 const gitlabTokenFlag = "gitlab-token"
+const githubTokenFlag = "github-token"
 const slackTokenFlag = "slack-token"
 
 var necessaryScanners = []string{scanner.OsvCommandName}
@@ -92,6 +92,13 @@ var PatrolFlags = []cli.Flag{
 		Category: string(Tokens),
 	},
 	&cli.StringFlag{
+		Name:     githubTokenFlag,
+		Usage:    "Token to access the Github API.",
+		Required: true,
+		EnvVars:  []string{"GITHUB_TOKEN"},
+		Category: string(Tokens),
+	},
+	&cli.StringFlag{
 		Name:     slackTokenFlag,
 		Usage:    "Token to access the Slack API.",
 		EnvVars:  []string{"SLACK_TOKEN"},
@@ -122,12 +129,13 @@ func PatrolAction(cCtx *cli.Context) error {
 
 	// Get tokens
 	gitlabToken := cCtx.String(gitlabTokenFlag)
+	githubToken := cCtx.String(githubTokenFlag)
 	slackToken := cCtx.String(slackTokenFlag)
 
 	// Create services
-	gitlabService, err := repo.NewGitlabService(gitlabToken)
+	repositoryService, err := provider.NewProvider(gitlabToken, githubToken)
 	if err != nil {
-		return errors.Join(errors.New("failed to create GitLab service"), err)
+		return errors.Join(errors.New("failed to create repository service"), err)
 	}
 
 	slackService, err := slack.New(slackToken, config.Verbose)
@@ -135,10 +143,9 @@ func PatrolAction(cCtx *cli.Context) error {
 		return errors.Join(errors.New("failed to create Slack service"), err)
 	}
 
-	gitService := git.New(gitlabToken)
 	osvService := scanner.NewOsvScanner()
 
-	patrolService := patrol.New(gitlabService, slackService, gitService, osvService)
+	patrolService := patrol.New(repositoryService, slackService, osvService)
 
 	// Check whether the necessary scanners are available
 	missingScanners := getMissingScanners(necessaryScanners)

@@ -1,7 +1,7 @@
 package publish
 
 import (
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
 	"sheriff/internal/scanner"
 	"testing"
 
@@ -11,7 +11,7 @@ import (
 func TestFormatReportMessageForConsole(t *testing.T) {
 	reports := []scanner.Report{
 		{
-			Project: repo.Project{
+			Project: repository.Project{
 				Name:   "project1",
 				WebURL: "http://example.com",
 			},
@@ -27,7 +27,7 @@ func TestFormatReportMessageForConsole(t *testing.T) {
 			},
 		},
 		{
-			Project: repo.Project{
+			Project: repository.Project{
 				Name:   "project2",
 				WebURL: "http://example2.com",
 			},

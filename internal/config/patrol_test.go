@@ -1,7 +1,7 @@
 package config
 
 import (
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +9,7 @@ import (
 
 func TestGetPatrolConfiguration(t *testing.T) {
 	want := PatrolConfig{
-		Locations:             []ProjectLocation{{Type: repo.Gitlab, Path: "group1"}, {Type: repo.Gitlab, Path: "group2/project1"}},
+		Locations:             []ProjectLocation{{Type: repository.Gitlab, Path: "group1"}, {Type: repository.Gitlab, Path: "group2/project1"}},
 		ReportToEmails:        []string{"some-email@gmail.com"},
 		ReportToSlackChannels: []string{"report-slack-channel"},
 		ReportToIssue:         true,
@@ -29,7 +29,7 @@ func TestGetPatrolConfiguration(t *testing.T) {
 
 func TestGetPatrolConfigurationCLIOverridesFile(t *testing.T) {
 	want := PatrolConfig{
-		Locations:             []ProjectLocation{{Type: repo.Gitlab, Path: "group1"}, {Type: repo.Gitlab, Path: "group2/project1"}},
+		Locations:             []ProjectLocation{{Type: repository.Gitlab, Path: "group1"}, {Type: repository.Gitlab, Path: "group2/project1"}},
 		ReportToEmails:        []string{"email@gmail.com", "other@gmail.com"},
 		ReportToSlackChannels: []string{"other-slack-channel"},
 		ReportToIssue:         false,
@@ -87,8 +87,8 @@ func TestParseUrls(t *testing.T) {
 		{[]string{"gitlab://namespace/project"}, &ProjectLocation{Type: "gitlab", Path: "namespace/project"}, false},
 		{[]string{"gitlab://namespace/subgroup/project"}, &ProjectLocation{Type: "gitlab", Path: "namespace/subgroup/project"}, false},
 		{[]string{"gitlab://namespace"}, &ProjectLocation{Type: "gitlab", Path: "namespace"}, false},
-		{[]string{"github://organization"}, &ProjectLocation{Type: "github", Path: "organization"}, true},
-		{[]string{"github://organization/project"}, &ProjectLocation{Type: "github", Path: "organization/project"}, true},
+		{[]string{"github://organization"}, &ProjectLocation{Type: "github", Path: "organization"}, false},
+		{[]string{"github://organization/project"}, &ProjectLocation{Type: "github", Path: "organization/project"}, false},
 		{[]string{"unknown://namespace/project"}, nil, true},
 		{[]string{"unknown://not a path"}, nil, true},
 		{[]string{"not a target"}, nil, true},

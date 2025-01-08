@@ -1,7 +1,8 @@
 package publish
 
 import (
-	"sheriff/internal/repo"
+	"sheriff/internal/config"
+	"sheriff/internal/repository"
 	"sheriff/internal/scanner"
 	"testing"
 	"time"
@@ -61,7 +62,7 @@ func TestFormatGitlabIssue(t *testing.T) {
 		},
 	}
 
-	got := formatGitlabIssue(scanner.Report{
+	got := formatIssue(scanner.Report{
 		Vulnerabilities: mockVulnerabilities,
 	})
 
@@ -132,7 +133,7 @@ func TestFormatGitlabIssueSortWithinGroup(t *testing.T) {
 		},
 	}
 
-	got := formatGitlabIssue(scanner.Report{
+	got := formatIssue(scanner.Report{
 		Vulnerabilities: mockVulnerabilities,
 	})
 
@@ -164,9 +165,14 @@ func TestMarkdownBoolean(t *testing.T) {
 
 func TestPublishAsGitlabIssues(t *testing.T) {
 	mockGitlabService := &mockGitlabService{}
-	mockGitlabService.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&repo.Issue{WebURL: "https://my-issue.com"}, nil)
+	mockGitlabService.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&repository.Issue{WebURL: "https://my-issue.com"}, nil)
+
+	mockRepoService := &mockRepoService{}
+	mockRepoService.On("Provide", repository.Gitlab).Return(mockGitlabService)
+
 	reports := []scanner.Report{
 		{
+			Project:      repository.Project{Repository: repository.Gitlab},
 			IsVulnerable: true,
 			Vulnerabilities: []scanner.Vulnerability{
 				{
@@ -176,8 +182,9 @@ func TestPublishAsGitlabIssues(t *testing.T) {
 		},
 	}
 
-	_ = PublishAsGitlabIssues(reports, mockGitlabService)
+	_ = PublishAsIssues(reports, mockRepoService)
 	mockGitlabService.AssertExpectations(t)
+	mockRepoService.AssertExpectations(t)
 
 	t.Run("FillsTheIssueUrl", func(t *testing.T) {
 		assert.Equal(t, "https://my-issue.com", reports[0].IssueUrl)
@@ -202,21 +209,40 @@ func TestGitlabIssueReportHeader(t *testing.T) {
 
 }
 
+type mockRepoService struct {
+	mock.Mock
+}
+
+func (c *mockRepoService) GetProjectList(paths []config.ProjectLocation) ([]repository.Project, error) {
+	args := c.Called(paths)
+	return args.Get(0).([]repository.Project), args.Error(1)
+}
+
+func (c *mockRepoService) Provide(platform repository.RepositoryType) repository.IRepositoryService {
+	args := c.Called(platform)
+	return args.Get(0).(repository.IRepositoryService)
+}
+
 type mockGitlabService struct {
 	mock.Mock
 }
 
-func (c *mockGitlabService) GetProjectList(paths []string) ([]repo.Project, error) {
+func (c *mockGitlabService) GetProjectList(paths []string) ([]repository.Project, error) {
 	args := c.Called(paths)
-	return args.Get(0).([]repo.Project), args.Error(1)
+	return args.Get(0).([]repository.Project), args.Error(1)
 }
 
-func (c *mockGitlabService) CloseVulnerabilityIssue(project repo.Project) error {
+func (c *mockGitlabService) CloseVulnerabilityIssue(project repository.Project) error {
 	args := c.Called(project)
 	return args.Error(0)
 }
 
-func (c *mockGitlabService) OpenVulnerabilityIssue(project repo.Project, report string) (*repo.Issue, error) {
+func (c *mockGitlabService) OpenVulnerabilityIssue(project repository.Project, report string) (*repository.Issue, error) {
 	args := c.Called(project, report)
-	return args.Get(0).(*repo.Issue), args.Error(1)
+	return args.Get(0).(*repository.Issue), args.Error(1)
+}
+
+func (c *mockGitlabService) Clone(url string, dir string) error {
+	args := c.Called(url, dir)
+	return args.Error(0)
 }

@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
 
 	zerolog "github.com/rs/zerolog/log"
 )
 
 type ProjectLocation struct {
-	Type repo.PlatformType
+	Type repository.RepositoryType
 	Path string
 }
 
@@ -124,9 +124,7 @@ func parseTargets(targets []string) ([]ProjectLocation, error) {
 			return nil, fmt.Errorf("target missing platform scheme %v", t)
 		}
 
-		if parsed.Scheme == string(repo.Github) {
-			return nil, fmt.Errorf("github is currently unsupported, but is on our roadmap 😃") // TODO #9
-		} else if parsed.Scheme != string(repo.Gitlab) {
+		if parsed.Scheme != string(repository.Gitlab) && parsed.Scheme != string(repository.Github) {
 			return nil, fmt.Errorf("unsupported platform %v", parsed.Scheme)
 		}
 
@@ -136,7 +134,7 @@ func parseTargets(targets []string) ([]ProjectLocation, error) {
 		}
 
 		locations[i] = ProjectLocation{
-			Type: repo.PlatformType(parsed.Scheme),
+			Type: repository.RepositoryType(parsed.Scheme),
 			Path: path,
 		}
 	}

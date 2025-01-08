@@ -2,7 +2,7 @@ package publish
 
 import (
 	"sheriff/internal/config"
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
 	"sheriff/internal/scanner"
 	"testing"
 
@@ -102,7 +102,7 @@ func TestFormatReportMessage(t *testing.T) {
 	reportBySeverityKind := map[scanner.SeverityScoreKind][]scanner.Report{
 		scanner.Critical: {
 			{
-				Project: repo.Project{
+				Project: repository.Project{
 					Name:   "project1",
 					WebURL: "http://example.com",
 				},
@@ -118,7 +118,7 @@ func TestFormatReportMessage(t *testing.T) {
 		},
 		scanner.High: {
 			{
-				Project: repo.Project{
+				Project: repository.Project{
 					Name:   "project2",
 					WebURL: "http://example2.com",
 				},
