@@ -9,13 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestNewService(t *testing.T) {
-	s, err := New("token")
-
-	assert.Nil(t, err)
-	assert.NotNil(t, s)
-}
-
 func TestGetProjectListOrganizationRepos(t *testing.T) {
 	mockService := mockService{}
 	mockService.On("GetOrganizationRepositories", "org", mock.Anything).Return([]*github.Repository{{Name: github.Ptr("Hello World")}}, &github.Response{}, nil)

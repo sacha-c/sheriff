@@ -20,12 +20,12 @@ type githubService struct {
 }
 
 // newGithubRepo creates a new GitHub repository service
-func New(token string) (*githubService, error) {
+func New(token string) githubService {
 	client := github.NewClient(nil)
 
 	s := githubService{client: &githubClient{client: client}, token: token}
 
-	return &s, nil
+	return s
 }
 
 func (s githubService) GetProjectList(paths []string) (projects []repository.Project, warn error) {

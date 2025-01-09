@@ -24,10 +24,7 @@ func NewProvider(gitlabToken string, githubToken string) (IProvider, error) {
 		return nil, errors.Join(fmt.Errorf("failed to create gitlab provider"), err)
 	}
 
-	githubService, err := github.New(githubToken)
-	if err != nil {
-		return nil, errors.Join(fmt.Errorf("failed to create github provider"), err)
-	}
+	githubService := github.New(githubToken)
 
 	return provider{
 		gitlabService: gitlabService,
