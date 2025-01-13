@@ -1,3 +1,13 @@
+## v0.24.0 (2025-01-13)
+
+### Feat
+
+- **#9**: add github project scanning support
+
+### Technical
+
+- change github client creation to value
+
 ## v0.23.4 (2025-01-07)
 
 ### Refactor
