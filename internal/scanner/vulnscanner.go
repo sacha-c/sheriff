@@ -3,7 +3,7 @@ package scanner
 
 import (
 	"sheriff/internal/config"
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
 )
 
 type SeverityScoreKind string
@@ -47,7 +47,7 @@ type Vulnerability struct {
 
 // Report is the main report representation of a project vulnerability scan.
 type Report struct {
-	Project         repo.Project
+	Project         repository.Project
 	ProjectConfig   config.ProjectConfig // Contains the project-level configuration that users of sheriff may have in their repository
 	IsVulnerable    bool
 	Vulnerabilities []Vulnerability
@@ -61,5 +61,5 @@ type VulnScanner[T any] interface {
 	// Scan runs a vulnerability scan on the given directory
 	Scan(dir string) (*T, error)
 	// GenerateReport maps the report from the scanner to our internal representation of vulnerability reports.
-	GenerateReport(p repo.Project, r *T) Report
+	GenerateReport(p repository.Project, r *T) Report
 }

@@ -3,7 +3,7 @@ package scanner
 import (
 	"encoding/json"
 	"path/filepath"
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
 	"sheriff/internal/shell"
 	"strconv"
 	"time"
@@ -136,7 +136,7 @@ func (s *osvScanner) Scan(dir string) (*OsvReport, error) {
 }
 
 // GenerateReport generates a Report struct from the OsvReport.
-func (s *osvScanner) GenerateReport(p repo.Project, r *OsvReport) Report {
+func (s *osvScanner) GenerateReport(p repository.Project, r *OsvReport) Report {
 	if r == nil {
 		return Report{
 			Project:         p,

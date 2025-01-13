@@ -2,7 +2,7 @@ package patrol
 
 import (
 	"sheriff/internal/config"
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
 	"sheriff/internal/scanner"
 	"testing"
 
@@ -12,27 +12,27 @@ import (
 )
 
 func TestNewService(t *testing.T) {
-	s := New(&mockGitlabService{}, &mockSlackService{}, &mockGitService{}, &mockOSVService{})
+	s := New(&mockRepoService{}, &mockSlackService{}, &mockOSVService{})
 
 	assert.NotNil(t, s)
 }
 
 func TestScanNoProjects(t *testing.T) {
-	mockGitlabService := &mockGitlabService{}
-	mockGitlabService.On("GetProjectList", []string{"group/to/scan"}).Return([]repo.Project{}, nil)
+	mockClient := &mockClient{}
+	mockClient.On("GetProjectList", []string{"group/to/scan"}).Return([]repository.Project{}, nil)
+
+	mockRepoService := &mockRepoService{}
+	mockRepoService.On("Provide", repository.Gitlab).Return(mockClient)
 
 	mockSlackService := &mockSlackService{}
-
-	mockGitService := &mockGitService{}
-	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
 
 	mockOSVService := &mockOSVService{}
 	mockOSVService.On("Scan", mock.Anything).Return(&scanner.OsvReport{}, nil)
 
-	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
+	svc := New(mockRepoService, mockSlackService, mockOSVService)
 
 	warn, err := svc.Patrol(config.PatrolConfig{
-		Locations:             []config.ProjectLocation{{Type: repo.Gitlab, Path: "group/to/scan"}},
+		Locations:             []config.ProjectLocation{{Type: repository.Gitlab, Path: "group/to/scan"}},
 		ReportToEmails:        []string{},
 		ReportToSlackChannels: []string{"channel"},
 		ReportToIssue:         true,
@@ -43,29 +43,31 @@ func TestScanNoProjects(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Nil(t, warn)
-	mockGitlabService.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
+	mockRepoService.AssertExpectations(t)
 	mockSlackService.AssertExpectations(t)
 }
 
 func TestScanNonVulnerableProject(t *testing.T) {
-	mockGitlabService := &mockGitlabService{}
-	mockGitlabService.On("GetProjectList", []string{"group/to/scan"}).Return([]repo.Project{{Name: "Hello World", RepoUrl: "https://gitlab.com/group/to/scan.git"}}, nil)
-	mockGitlabService.On("CloseVulnerabilityIssue", mock.Anything).Return(nil)
+	mockClient := &mockClient{}
+	mockClient.On("GetProjectList", []string{"group/to/scan"}).Return([]repository.Project{{Name: "Hello World", RepoUrl: "https://gitlab.com/group/to/scan.git", Repository: repository.Gitlab}}, nil)
+	mockClient.On("CloseVulnerabilityIssue", mock.Anything).Return(nil)
+	mockClient.On("Clone", "https://gitlab.com/group/to/scan.git", mock.Anything).Return(nil)
+
+	mockRepoService := &mockRepoService{}
+	mockRepoService.On("Provide", repository.Gitlab).Return(mockClient)
 
 	mockSlackService := &mockSlackService{}
 	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
 
-	mockGitService := &mockGitService{}
-	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
-
 	mockOSVService := &mockOSVService{}
 	mockOSVService.On("Scan", mock.Anything).Return(&scanner.OsvReport{}, nil)
-	mockOSVService.On("GenerateReport", mock.Anything, mock.Anything).Return(scanner.Report{})
+	mockOSVService.On("GenerateReport", mock.Anything, mock.Anything).Return(scanner.Report{Project: repository.Project{Repository: repository.Gitlab}})
 
-	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
+	svc := New(mockRepoService, mockSlackService, mockOSVService)
 
 	warn, err := svc.Patrol(config.PatrolConfig{
-		Locations:             []config.ProjectLocation{{Type: repo.Gitlab, Path: "group/to/scan"}},
+		Locations:             []config.ProjectLocation{{Type: repository.Gitlab, Path: "group/to/scan"}},
 		ReportToEmails:        []string{},
 		ReportToSlackChannels: []string{"channel"},
 		ReportToIssue:         true,
@@ -76,25 +78,28 @@ func TestScanNonVulnerableProject(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Nil(t, warn)
-	mockGitlabService.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
+	mockRepoService.AssertExpectations(t)
 	mockSlackService.AssertExpectations(t)
 }
 
 func TestScanVulnerableProject(t *testing.T) {
-	mockGitlabService := &mockGitlabService{}
-	mockGitlabService.On("GetProjectList", []string{"group/to/scan"}).Return([]repo.Project{{Name: "Hello World", RepoUrl: "https://gitlab.com/group/to/scan.git"}}, nil)
-	mockGitlabService.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&repo.Issue{}, nil)
+	mockClient := &mockClient{}
+	mockClient.On("GetProjectList", []string{"group/to/scan"}).Return([]repository.Project{{Name: "Hello World", RepoUrl: "https://gitlab.com/group/to/scan.git", Repository: repository.Gitlab}}, nil)
+	mockClient.On("OpenVulnerabilityIssue", mock.Anything, mock.Anything).Return(&repository.Issue{}, nil)
+	mockClient.On("Clone", "https://gitlab.com/group/to/scan.git", mock.Anything).Return(nil)
+
+	mockRepoService := &mockRepoService{}
+	mockRepoService.On("Provide", repository.Gitlab).Return(mockClient)
 
 	mockSlackService := &mockSlackService{}
 	mockSlackService.On("PostMessage", "channel", mock.Anything).Return("", nil)
-
-	mockGitService := &mockGitService{}
-	mockGitService.On("Clone", mock.Anything, "https://gitlab.com/group/to/scan.git").Return(nil)
 
 	mockOSVService := &mockOSVService{}
 	report := &scanner.OsvReport{}
 	mockOSVService.On("Scan", mock.Anything).Return(report, nil)
 	mockOSVService.On("GenerateReport", mock.Anything, mock.Anything).Return(scanner.Report{
+		Project:      repository.Project{Repository: repository.Gitlab},
 		IsVulnerable: true,
 		Vulnerabilities: []scanner.Vulnerability{
 			{
@@ -103,10 +108,10 @@ func TestScanVulnerableProject(t *testing.T) {
 		},
 	})
 
-	svc := New(mockGitlabService, mockSlackService, mockGitService, mockOSVService)
+	svc := New(mockRepoService, mockSlackService, mockOSVService)
 
 	warn, err := svc.Patrol(config.PatrolConfig{
-		Locations:             []config.ProjectLocation{{Type: repo.Gitlab, Path: "group/to/scan"}},
+		Locations:             []config.ProjectLocation{{Type: repository.Gitlab, Path: "group/to/scan"}},
 		ReportToEmails:        []string{},
 		ReportToSlackChannels: []string{"channel"},
 		ReportToIssue:         true,
@@ -117,7 +122,8 @@ func TestScanVulnerableProject(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Nil(t, warn)
-	mockGitlabService.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
+	mockRepoService.AssertExpectations(t)
 	mockSlackService.AssertExpectations(t)
 }
 
@@ -186,23 +192,37 @@ func TestMarkOutdatedAcknowledgements(t *testing.T) {
 	assert.Equal(t, []string{"CVE-3"}, report.OutdatedAcks)
 }
 
-type mockGitlabService struct {
+type mockRepoService struct {
 	mock.Mock
 }
 
-func (c *mockGitlabService) GetProjectList(paths []string) ([]repo.Project, error) {
-	args := c.Called(paths)
-	return args.Get(0).([]repo.Project), args.Error(1)
+func (c *mockRepoService) Provide(platform repository.RepositoryType) repository.IRepositoryService {
+	args := c.Called(platform)
+	return args.Get(0).(repository.IRepositoryService)
 }
 
-func (c *mockGitlabService) CloseVulnerabilityIssue(project repo.Project) error {
+type mockClient struct {
+	mock.Mock
+}
+
+func (c *mockClient) GetProjectList(paths []string) ([]repository.Project, error) {
+	args := c.Called(paths)
+	return args.Get(0).([]repository.Project), args.Error(1)
+}
+
+func (c *mockClient) CloseVulnerabilityIssue(project repository.Project) error {
 	args := c.Called(project)
 	return args.Error(0)
 }
 
-func (c *mockGitlabService) OpenVulnerabilityIssue(project repo.Project, report string) (*repo.Issue, error) {
+func (c *mockClient) OpenVulnerabilityIssue(project repository.Project, report string) (*repository.Issue, error) {
 	args := c.Called(project, report)
-	return args.Get(0).(*repo.Issue), args.Error(1)
+	return args.Get(0).(*repository.Issue), args.Error(1)
+}
+
+func (c *mockClient) Clone(url string, dir string) error {
+	args := c.Called(url, dir)
+	return args.Error(0)
 }
 
 type mockSlackService struct {
@@ -214,15 +234,6 @@ func (c *mockSlackService) PostMessage(channelName string, options ...slack.MsgO
 	return args.String(0), args.Error(1)
 }
 
-type mockGitService struct {
-	mock.Mock
-}
-
-func (c *mockGitService) Clone(dir string, url string) (err error) {
-	args := c.Called(dir, url)
-	return args.Error(0)
-}
-
 type mockOSVService struct {
 	mock.Mock
 }
@@ -232,7 +243,7 @@ func (c *mockOSVService) Scan(dir string) (*scanner.OsvReport, error) {
 	return args.Get(0).(*scanner.OsvReport), args.Error(1)
 }
 
-func (c *mockOSVService) GenerateReport(p repo.Project, r *scanner.OsvReport) scanner.Report {
+func (c *mockOSVService) GenerateReport(p repository.Project, r *scanner.OsvReport) scanner.Report {
 	args := c.Called(p, r)
 	return args.Get(0).(scanner.Report)
 }

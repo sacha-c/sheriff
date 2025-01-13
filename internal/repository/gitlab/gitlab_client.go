@@ -1,5 +1,5 @@
 // Package gitlab provides a GitLab service to interact with the GitLab API.
-package repo
+package gitlab
 
 // This client is a thin wrapper around the go-gitlab library. It provides an interface to the GitLab client
 // The main purpose of this client is to provide an interface to the GitLab client which can be mocked in tests.

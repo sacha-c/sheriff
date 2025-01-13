@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 	"sheriff/internal/config"
-	"sheriff/internal/git"
 	"sheriff/internal/publish"
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
+	"sheriff/internal/repository/provider"
 	"sheriff/internal/scanner"
 	"sheriff/internal/slack"
 	"sync"
@@ -29,21 +29,19 @@ type securityPatroller interface {
 
 // sheriffService is the implementation of the SecurityPatroller interface.
 type sheriffService struct {
-	gitlabService repo.IService
-	slackService  slack.IService
-	gitService    git.IService
-	osvService    scanner.VulnScanner[scanner.OsvReport]
+	repoService  provider.IProvider
+	slackService slack.IService
+	osvService   scanner.VulnScanner[scanner.OsvReport]
 }
 
 // New creates a new securityPatroller service.
 // It contains the main "loop" logic of this tool.
 // A "patrol" is defined as scanning GitLab groups for vulnerabilities and publishing reports where needed.
-func New(gitlabService repo.IService, slackService slack.IService, gitService git.IService, osvService scanner.VulnScanner[scanner.OsvReport]) securityPatroller {
+func New(repoService provider.IProvider, slackService slack.IService, osvService scanner.VulnScanner[scanner.OsvReport]) securityPatroller {
 	return &sheriffService{
-		gitlabService: gitlabService,
-		slackService:  slackService,
-		gitService:    gitService,
-		osvService:    osvService,
+		repoService:  repoService,
+		slackService: slackService,
+		osvService:   osvService,
 	}
 }
 
@@ -65,7 +63,7 @@ func (s *sheriffService) Patrol(args config.PatrolConfig) (warn error, err error
 
 	if args.ReportToIssue {
 		log.Info().Msg("Creating issue in affected projects")
-		if gwarn := publish.PublishAsGitlabIssues(scanReports, s.gitlabService); gwarn != nil {
+		if gwarn := publish.PublishAsIssues(scanReports, s.repoService); gwarn != nil {
 			gwarn = errors.Join(errors.New("errors occured when creating issues"), gwarn)
 			warn = errors.Join(gwarn, warn)
 		}
@@ -107,13 +105,7 @@ func (s *sheriffService) scanAndGetReports(locations []config.ProjectLocation) (
 	defer os.RemoveAll(tempScanDir)
 	log.Info().Str("path", tempScanDir).Msg("Created temporary directory")
 
-	gitlabLocs := pie.Map(
-		pie.Filter(locations, func(v config.ProjectLocation) bool { return v.Type == repo.Gitlab }),
-		func(v config.ProjectLocation) string { return v.Path },
-	)
-	log.Info().Strs("locations", gitlabLocs).Msg("Getting the list of projects to scan")
-
-	projects, pwarn := s.gitlabService.GetProjectList(gitlabLocs)
+	projects, pwarn := s.getProjectList(locations)
 	if pwarn != nil {
 		pwarn = errors.Join(errors.New("errors occured when getting project list"), pwarn)
 		warn = errors.Join(pwarn, warn)
@@ -152,8 +144,41 @@ func (s *sheriffService) scanAndGetReports(locations []config.ProjectLocation) (
 	return
 }
 
+func (s *sheriffService) getProjectList(locs []config.ProjectLocation) (projects []repository.Project, warn error) {
+	gitlabLocs := pie.Map(
+		pie.Filter(locs, func(loc config.ProjectLocation) bool { return loc.Type == repository.Gitlab }),
+		func(loc config.ProjectLocation) string { return loc.Path },
+	)
+	githubLocs := pie.Map(
+		pie.Filter(locs, func(loc config.ProjectLocation) bool { return loc.Type == repository.Github }),
+		func(loc config.ProjectLocation) string { return loc.Path },
+	)
+
+	if len(gitlabLocs) > 0 {
+		log.Info().Strs("locations", gitlabLocs).Msg("Getting the list of projects from gitlab to scan")
+		gitlabProjects, err := s.repoService.Provide(repository.Gitlab).GetProjectList(gitlabLocs)
+		if err != nil {
+			warn = errors.Join(errors.New("non-critical errors encountered when scanning for gitlab projects"), err)
+		}
+
+		projects = append(projects, gitlabProjects...)
+	}
+
+	if len(githubLocs) > 0 {
+		log.Info().Strs("locations", githubLocs).Msg("Getting the list of projects from github to scan")
+		githubProjects, err := s.repoService.Provide(repository.Github).GetProjectList(githubLocs)
+		if err != nil {
+			warn = errors.Join(errors.New("non-critical errors encountered when scanning for github projects"), err)
+		}
+
+		projects = append(projects, githubProjects...)
+	}
+
+	return
+}
+
 // scanProject scans a project for vulnerabilities using the osv scanner.
-func (s *sheriffService) scanProject(project repo.Project) (report *scanner.Report, err error) {
+func (s *sheriffService) scanProject(project repository.Project) (report *scanner.Report, err error) {
 	dir, err := os.MkdirTemp(tempScanDir, fmt.Sprintf("%v-", project.Name))
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to create project temporary directory"), err)
@@ -161,9 +186,9 @@ func (s *sheriffService) scanProject(project repo.Project) (report *scanner.Repo
 	defer os.RemoveAll(dir)
 
 	// Clone the project
-	log.Info().Str("project", project.Path).Str("dir", dir).Msg("Cloning project")
-	if err = s.gitService.Clone(dir, project.RepoUrl); err != nil {
-		return nil, errors.Join(errors.New("failed to clone project"), err)
+	log.Info().Str("project", project.Path).Str("dir", dir).Str("url", project.RepoUrl).Msg("Cloning project")
+	if err := s.repoService.Provide(project.Repository).Clone(project.RepoUrl, dir); err != nil {
+		return nil, errors.Join(fmt.Errorf("failed to clone project %v", project.Path), err)
 	}
 
 	config := config.GetProjectConfiguration(project.Path, dir)

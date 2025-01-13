@@ -1,46 +1,50 @@
-package repo
+package gitlab
 
 import (
 	"errors"
 	"fmt"
+	"sheriff/internal/repository"
 	"sync"
 
 	"github.com/elliotchance/pie/v2"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/rs/zerolog/log"
 	"github.com/xanzy/go-gitlab"
 )
 
 type gitlabService struct {
 	client iclient
+	token  string
 }
 
-// NewGitlabService creates a new GitLab service
-func NewGitlabService(gitlabToken string) (IService, error) {
-	gitlabClient, err := gitlab.NewClient(gitlabToken)
+// newGitlabRepo creates a new GitLab repository service
+func New(token string) (*gitlabService, error) {
+	c, err := gitlab.NewClient(token)
 	if err != nil {
 		return nil, err
 	}
 
-	s := gitlabService{&client{client: gitlabClient}}
+	s := gitlabService{client: &client{client: c}, token: token}
 
 	return &s, nil
 }
 
-func (s *gitlabService) GetProjectList(paths []string) (projects []Project, warn error) {
+func (s gitlabService) GetProjectList(paths []string) (projects []repository.Project, warn error) {
 	projects, pwarn := s.gatherProjectsFromGroupsOrProjects(paths)
 	if pwarn != nil {
 		pwarn = errors.Join(errors.New("errors occured when gathering projects"), pwarn)
 		warn = errors.Join(pwarn, warn)
 	}
 
-	projectsNamespaces := pie.Map(projects, func(p Project) string { return p.Path })
+	projectsNamespaces := pie.Map(projects, func(p repository.Project) string { return p.Path })
 	log.Info().Strs("projects", projectsNamespaces).Msg("Projects to scan")
 
 	return projects, warn
 }
 
 // CloseVulnerabilityIssue closes the vulnerability issue for the given project
-func (s *gitlabService) CloseVulnerabilityIssue(project Project) (err error) {
+func (s gitlabService) CloseVulnerabilityIssue(project repository.Project) (err error) {
 	issue, err := s.getVulnerabilityIssue(project)
 	if err != nil {
 		return errors.Join(errors.New("failed to fetch current list of issues"), err)
@@ -73,7 +77,7 @@ func (s *gitlabService) CloseVulnerabilityIssue(project Project) (err error) {
 }
 
 // OpenVulnerabilityIssue opens or updates the vulnerability issue for the given project
-func (s *gitlabService) OpenVulnerabilityIssue(project Project, report string) (issue *Issue, err error) {
+func (s gitlabService) OpenVulnerabilityIssue(project repository.Project, report string) (issue *repository.Issue, err error) {
 	gitlabIssue, err := s.getVulnerabilityIssue(project)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("[%v] Failed to fetch current list of issues", project.Path), err)
@@ -83,7 +87,7 @@ func (s *gitlabService) OpenVulnerabilityIssue(project Project, report string) (
 		log.Info().Str("project", project.Path).Msg("Creating new issue")
 
 		gitlabIssue, _, err := s.client.CreateIssue(project.ID, &gitlab.CreateIssueOptions{
-			Title:       gitlab.Ptr(VulnerabilityIssueTitle),
+			Title:       gitlab.Ptr(repository.VulnerabilityIssueTitle),
 			Description: &report,
 		})
 		if err != nil {
@@ -111,9 +115,22 @@ func (s *gitlabService) OpenVulnerabilityIssue(project Project, report string) (
 	return
 }
 
+func (s gitlabService) Clone(url string, dir string) (err error) {
+	_, err = git.PlainClone(dir, false, &git.CloneOptions{
+		URL: url,
+		Auth: &http.BasicAuth{
+			Username: "N/A",
+			Password: s.token,
+		},
+		Depth: 1,
+	})
+
+	return err
+}
+
 // This function receives a list of paths which can be gitlab projects or groups
 // and returns the list of projects within those paths and the list of projects contained within those groups and their subgroups.
-func (s *gitlabService) gatherProjectsFromGroupsOrProjects(paths []string) (projects []Project, warn error) {
+func (s gitlabService) gatherProjectsFromGroupsOrProjects(paths []string) (projects []repository.Project, warn error) {
 	for _, path := range paths {
 		gp, gpwarn, gerr := s.getProjectsFromGroupOrProject(path)
 		if gerr != nil {
@@ -140,7 +157,7 @@ func (s *gitlabService) gatherProjectsFromGroupsOrProjects(paths []string) (proj
 //
 //	If it succeeds then it returns all projects of that group & its subgroups.
 //	If it fails then it tries to get the path as a project.
-func (s *gitlabService) getProjectsFromGroupOrProject(path string) (projects []Project, warn error, err error) {
+func (s gitlabService) getProjectsFromGroupOrProject(path string) (projects []repository.Project, warn error, err error) {
 	gp, gpwarn, gperr := s.listGroupProjects(path)
 	if gperr != nil {
 		log.Debug().Str("path", path).Msg("failed to fetch as group. trying as project")
@@ -151,7 +168,7 @@ func (s *gitlabService) getProjectsFromGroupOrProject(path string) (projects []P
 			return nil, fmt.Errorf("unexpected nil project %v", path), nil
 		}
 
-		return []Project{mapProject(*p)}, nil, nil
+		return []repository.Project{mapProject(*p)}, nil, nil
 	}
 
 	ps := pie.Map(gp, mapProject)
@@ -160,9 +177,9 @@ func (s *gitlabService) getProjectsFromGroupOrProject(path string) (projects []P
 }
 
 // getVulnerabilityIssue returns the vulnerability issue for the given project
-func (s *gitlabService) getVulnerabilityIssue(project Project) (issue *gitlab.Issue, err error) {
+func (s gitlabService) getVulnerabilityIssue(project repository.Project) (issue *gitlab.Issue, err error) {
 	issues, _, err := s.client.ListProjectIssues(project.ID, &gitlab.ListProjectIssuesOptions{
-		Search: gitlab.Ptr(VulnerabilityIssueTitle),
+		Search: gitlab.Ptr(repository.VulnerabilityIssueTitle),
 		In:     gitlab.Ptr("title"),
 	})
 	if err != nil {
@@ -181,7 +198,7 @@ func (s *gitlabService) getVulnerabilityIssue(project Project) (issue *gitlab.Is
 }
 
 // listGroupProjects returns the list of projects for the given group ID
-func (s *gitlabService) listGroupProjects(path string) (projects []gitlab.Project, warn error, err error) {
+func (s gitlabService) listGroupProjects(path string) (projects []gitlab.Project, warn error, err error) {
 	projectPtrs, response, err := s.client.ListGroupProjects(path,
 		&gitlab.ListGroupProjectsOptions{
 			Archived:         gitlab.Ptr(false),
@@ -224,7 +241,7 @@ func ToChan[T any](s []T) <-chan T {
 }
 
 // listGroupNextProjects returns the list of projects for the given group ID from the next pages
-func (s *gitlabService) listGroupNextProjects(path string, totalPages int) (projects []gitlab.Project, warn error) {
+func (s gitlabService) listGroupNextProjects(path string, totalPages int) (projects []gitlab.Project, warn error) {
 	var wg sync.WaitGroup
 	nextProjectsChan := make(chan []gitlab.Project, totalPages)
 	warnChan := make(chan error, totalPages)
@@ -274,7 +291,7 @@ func (s *gitlabService) listGroupNextProjects(path string, totalPages int) (proj
 	return
 }
 
-func filterUniqueProjects(projects []Project) (filteredProjects []Project) {
+func filterUniqueProjects(projects []repository.Project) (filteredProjects []repository.Project) {
 	projectsNamespaces := make(map[int]bool)
 
 	for _, project := range projects {
@@ -299,26 +316,25 @@ func dereferenceProjectsPointers(projects []*gitlab.Project) (filteredProjects [
 	return
 }
 
-func mapProject(p gitlab.Project) Project {
-	return Project{
-		ID:       p.ID,
-		Name:     p.Name,
-		Path:     p.PathWithNamespace,
-		WebURL:   p.WebURL,
-		RepoUrl:  p.HTTPURLToRepo,
-		Platform: string(Gitlab),
+func mapProject(p gitlab.Project) repository.Project {
+	return repository.Project{
+		ID:         p.ID,
+		Name:       p.Name,
+		Path:       p.PathWithNamespace,
+		WebURL:     p.WebURL,
+		RepoUrl:    p.HTTPURLToRepo,
+		Repository: repository.Gitlab,
 	}
 }
 
-func mapIssue(i gitlab.Issue) Issue {
-	return Issue{
-		Title:    i.Title,
-		WebURL:   i.WebURL,
-		Platform: string(Gitlab),
+func mapIssue(i gitlab.Issue) repository.Issue {
+	return repository.Issue{
+		Title:  i.Title,
+		WebURL: i.WebURL,
 	}
 }
 
-func mapIssuePtr(i *gitlab.Issue) *Issue {
+func mapIssuePtr(i *gitlab.Issue) *repository.Issue {
 	if i == nil {
 		return nil
 	}

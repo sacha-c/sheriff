@@ -1,7 +1,7 @@
 package scanner
 
 import (
-	"sheriff/internal/repo"
+	"sheriff/internal/repository"
 	"sheriff/internal/shell"
 	"testing"
 
@@ -96,7 +96,7 @@ func (m *mockCommandRunner) Run(shell.CommandInput) (shell.CommandOutput, error)
 func TestGenerateReportOSV(t *testing.T) {
 	mockReport := createMockReport("10.0")
 	s := osvScanner{}
-	got := s.GenerateReport(repo.Project{}, mockReport)
+	got := s.GenerateReport(repository.Project{}, mockReport)
 
 	assert.NotNil(t, got)
 	assert.Len(t, got.Vulnerabilities, 1)
@@ -132,7 +132,7 @@ func TestGenerateReportOSVHasCorrectSeverityKind(t *testing.T) {
 	for input, want := range testCases {
 		t.Run(input, func(t *testing.T) {
 			mockReport := createMockReport(input)
-			got := s.GenerateReport(repo.Project{}, mockReport)
+			got := s.GenerateReport(repository.Project{}, mockReport)
 
 			assert.NotNil(t, got)
 			assert.Equal(t, want, got.Vulnerabilities[0].SeverityScoreKind)
@@ -156,7 +156,7 @@ func TestReportContainsHasAvailableFix(t *testing.T) {
 			},
 		},
 	})
-	got := s.GenerateReport(repo.Project{}, mockReport)
+	got := s.GenerateReport(repository.Project{}, mockReport)
 
 	assert.NotNil(t, got)
 	assert.Len(t, got.Vulnerabilities, 1)

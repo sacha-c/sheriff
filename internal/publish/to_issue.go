@@ -3,7 +3,7 @@ package publish
 import (
 	"errors"
 	"fmt"
-	"sheriff/internal/repo"
+	"sheriff/internal/repository/provider"
 	"sheriff/internal/scanner"
 	"strconv"
 	"sync"
@@ -20,16 +20,17 @@ var severityScoreOrder = getSeverityScoreOrder(scanner.SeverityScoreThresholds)
 // now is a function that returns the current time
 var now = time.Now
 
-// PublishAsGitlabIssues creates or updates GitLab Issue reports for the given reports
+// PublishAsIssues creates or updates Issue reports for the given reports
 // It will add the Issue URL to the Report if it was created or updated successfully
-func PublishAsGitlabIssues(reports []scanner.Report, s repo.IService) (warn error) {
+func PublishAsIssues(reports []scanner.Report, s provider.IProvider) (warn error) {
 	var wg sync.WaitGroup
 	for i := 0; i < len(reports); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if reports[i].IsVulnerable {
-				if issue, err := s.OpenVulnerabilityIssue(reports[i].Project, formatGitlabIssue(reports[i])); err != nil {
+			report := reports[i]
+			if report.IsVulnerable {
+				if issue, err := s.Provide(report.Project.Repository).OpenVulnerabilityIssue(report.Project, formatIssue(report)); err != nil {
 					log.Error().Err(err).Str("project", reports[i].Project.Path).Msg("Failed to open or update issue")
 					err = fmt.Errorf("failed to open or update issue for project %v", reports[i].Project.Path)
 					warn = errors.Join(err, warn)
@@ -37,9 +38,9 @@ func PublishAsGitlabIssues(reports []scanner.Report, s repo.IService) (warn erro
 					reports[i].IssueUrl = issue.WebURL
 				}
 			} else {
-				if err := s.CloseVulnerabilityIssue(reports[i].Project); err != nil {
-					log.Error().Err(err).Str("project", reports[i].Project.Path).Msg("Failed to close issue")
-					err = fmt.Errorf("failed to close issue for project %v", reports[i].Project.Path)
+				if err := s.Provide(report.Project.Repository).CloseVulnerabilityIssue(report.Project); err != nil {
+					log.Error().Err(err).Str("project", report.Project.Path).Msg("Failed to close issue")
+					err = fmt.Errorf("failed to close issue for project %v", report.Project.Path)
 					warn = errors.Join(err, warn)
 				}
 			}
@@ -74,8 +75,8 @@ func groupVulnReportsByMaxSeverityKind(reports []scanner.Report) map[scanner.Sev
 	return groupedVulnerabilities
 }
 
-// formatGitlabIssue formats the report as a GitLab issue
-func formatGitlabIssue(r scanner.Report) (mdReport string) {
+// formatIssue formats the report as an issue
+func formatIssue(r scanner.Report) (mdReport string) {
 	groupedVulnerabilities := pie.GroupBy(r.Vulnerabilities, func(v scanner.Vulnerability) scanner.SeverityScoreKind { return v.SeverityScoreKind })
 
 	mdReport = getVulnReportHeader()
@@ -84,7 +85,7 @@ func formatGitlabIssue(r scanner.Report) (mdReport string) {
 			sortedVulnsInGroup := pie.SortUsing(group, func(a, b scanner.Vulnerability) bool {
 				return severityBiggerThan(a.Severity, b.Severity)
 			})
-			mdReport += formatGitlabIssueTable(groupName, sortedVulnsInGroup)
+			mdReport += formatIssueTable(groupName, sortedVulnsInGroup)
 		}
 	}
 
@@ -108,9 +109,9 @@ func formatOutdatedAcks(outdatedAcks []string) (md string) {
 	return
 }
 
-// formatGitlabIssueTable formats a group of vulnerabilities as a markdown table
-// for the GitLab issue report
-func formatGitlabIssueTable(groupName scanner.SeverityScoreKind, vs []scanner.Vulnerability) (md string) {
+// formatIssueTable formats a group of vulnerabilities as a markdown table
+// for the issue report
+func formatIssueTable(groupName scanner.SeverityScoreKind, vs []scanner.Vulnerability) (md string) {
 	md = fmt.Sprintf("\n## Severity: %v\n", groupName)
 	if groupName == scanner.Acknowledged {
 		md += "\n💡 These vulnerabilities have been acknowledged by the team and are not considered a risk.\n\n"
