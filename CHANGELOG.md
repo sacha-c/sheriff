@@ -1,3 +1,9 @@
+## v0.24.1 (2025-02-10)
+
+### Fix
+
+- **#48**: summary report severity count
+
 ## v0.24.0 (2025-01-13)
 
 ### Feat
