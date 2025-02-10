@@ -20,10 +20,10 @@ import (
 func PublishAsGeneralSlackMessage(channelNames []string, reports []scanner.Report, paths []string, s slack.IService) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(channelNames))
-	vulnerableReportsBySeverityKind := groupVulnReportsByMaxSeverityKind(reports)
+	vulnerableReportsByMaxSeverityKind := groupVulnReportsByMaxSeverityKind(reports)
 
-	summary := formatSummary(vulnerableReportsBySeverityKind, len(reports), paths)
-	threadMsgs := formatReportMessage(vulnerableReportsBySeverityKind)
+	summary := formatSummary(vulnerableReportsByMaxSeverityKind, len(reports), paths)
+	threadMsgs := formatReportMessage(vulnerableReportsByMaxSeverityKind)
 	for _, slackChannel := range channelNames {
 		log.Info().Str("slackChannel", slackChannel).Msg("Posting report to slack channel")
 		wg.Add(1)

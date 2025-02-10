@@ -67,7 +67,9 @@ func severityBiggerThan(a string, b string) bool {
 func groupVulnReportsByMaxSeverityKind(reports []scanner.Report) map[scanner.SeverityScoreKind][]scanner.Report {
 	vulnerableReports := pie.Filter(reports, func(r scanner.Report) bool { return r.IsVulnerable })
 	groupedVulnerabilities := pie.GroupBy(vulnerableReports, func(r scanner.Report) scanner.SeverityScoreKind {
-		maxSeverity := pie.SortUsing(r.Vulnerabilities, func(a, b scanner.Vulnerability) bool { return a.Severity > b.Severity })[0]
+		maxSeverity := pie.SortUsing(r.Vulnerabilities, func(a, b scanner.Vulnerability) bool {
+			return scanner.SeverityScoreThresholds[a.SeverityScoreKind] > scanner.SeverityScoreThresholds[b.SeverityScoreKind]
+		})[0]
 
 		return maxSeverity.SeverityScoreKind
 	})
